@@ -12,7 +12,7 @@ Set up your local development environment for contributing to Genesis.
 ## Clone the Repository
 
 ```bash
-git clone https://github.com/Mohammed-Aman-Khan/genesis.git
+git clone https://github.com/Open-Vanguard/genesis.git
 cd genesis
 ```
 

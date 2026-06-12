@@ -15,7 +15,7 @@ Thank you for your interest in contributing to Genesis!
 
 ### 1. Fork the Repository
 
-Fork [Genesis on GitHub](https://github.com/Mohammed-Aman-Khan/genesis)
+Fork [Genesis on GitHub](https://github.com/Open-Vanguard/genesis)
 
 ### 2. Clone Your Fork
 
@@ -146,7 +146,7 @@ Want to create a plugin? See:
 
 ### Before Reporting
 
-1. Search [existing issues](https://github.com/Mohammed-Aman-Khan/genesis/issues)
+1. Search [existing issues](https://github.com/Open-Vanguard/genesis/issues)
 2. Check [troubleshooting guide](/guide/troubleshooting)
 3. Try latest version
 
@@ -229,8 +229,8 @@ Be respectful and inclusive. We're all here to learn and build together.
 
 ## Questions?
 
-- [GitHub Discussions](https://github.com/Mohammed-Aman-Khan/genesis/discussions)
-- [GitHub Issues](https://github.com/Mohammed-Aman-Khan/genesis/issues)
+- [GitHub Discussions](https://github.com/Open-Vanguard/genesis/discussions)
+- [GitHub Issues](https://github.com/Open-Vanguard/genesis/issues)
 
 ## License
 

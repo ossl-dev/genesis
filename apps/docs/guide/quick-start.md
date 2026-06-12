@@ -145,6 +145,6 @@ python3 --version
 ## Need Help?
 
 - Check the [Troubleshooting Guide](/guide/troubleshooting)
-- Open an [issue on GitHub](https://github.com/Mohammed-Aman-Khan/genesis/issues)
+- Open an [issue on GitHub](https://github.com/Open-Vanguard/genesis/issues)
 - Read the [full documentation](/guide/introduction)
 

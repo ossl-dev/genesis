@@ -277,7 +277,7 @@ Create `apps/docs/plugins/my-tool.md` with full documentation.
 
 ## Complete Example
 
-See the [Node.js plugin](https://github.com/Mohammed-Aman-Khan/genesis/tree/main/packages/plugins/src/plugins/node) for a complete example.
+See the [Node.js plugin](https://github.com/Open-Vanguard/genesis/tree/main/packages/plugins/src/plugins/node) for a complete example.
 
 ## Best Practices
 

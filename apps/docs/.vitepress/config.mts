@@ -23,7 +23,7 @@ export default defineConfig({
         items: [
           {
             text: "Changelog",
-            link: "https://github.com/Mohammed-Aman-Khan/genesis/releases",
+            link: "https://github.com/Open-Vanguard/genesis/releases",
           },
           { text: "Contributing", link: "/guide/contributing" },
         ],
@@ -158,7 +158,7 @@ export default defineConfig({
     },
 
     socialLinks: [
-      { icon: "github", link: "https://github.com/Mohammed-Aman-Khan/genesis" },
+      { icon: "github", link: "https://github.com/Open-Vanguard/genesis" },
     ],
 
     footer: {
@@ -168,7 +168,7 @@ export default defineConfig({
 
     editLink: {
       pattern:
-        "https://github.com/Mohammed-Aman-Khan/genesis/edit/main/apps/docs/:path",
+        "https://github.com/Open-Vanguard/genesis/edit/main/apps/docs/:path",
       text: "Edit this page on GitHub",
     },
 

@@ -143,7 +143,7 @@ Follow the installation guides provided by Genesis. Each plugin will display det
 
 **Solution:**
 
-This shouldn't happen! If you see this, please [open an issue](https://github.com/Mohammed-Aman-Khan/genesis/issues) with:
+This shouldn't happen! If you see this, please [open an issue](https://github.com/Open-Vanguard/genesis/issues) with:
 - Your configuration file
 - Genesis output logs
 - Platform information
@@ -312,11 +312,11 @@ genesis --version
 
 ### Search Issues
 
-Search existing issues: [GitHub Issues](https://github.com/Mohammed-Aman-Khan/genesis/issues)
+Search existing issues: [GitHub Issues](https://github.com/Open-Vanguard/genesis/issues)
 
 ### Open an Issue
 
-If you can't find a solution, [open a new issue](https://github.com/Mohammed-Aman-Khan/genesis/issues/new) with:
+If you can't find a solution, [open a new issue](https://github.com/Open-Vanguard/genesis/issues/new) with:
 
 1. **Genesis version**: `genesis --version`
 2. **Platform**: macOS/Linux/Windows
@@ -370,5 +370,5 @@ Error: Command failed: apt-get update
 
 - [Getting Started](/guide/getting-started) - Start fresh
 - [Configuration](/guide/configuration) - Review your config
-- [GitHub Issues](https://github.com/Mohammed-Aman-Khan/genesis/issues) - Get help
+- [GitHub Issues](https://github.com/Open-Vanguard/genesis/issues) - Get help
 

@@ -257,7 +257,7 @@ Coming soon! We'll support community-contributed plugins.
 
 ### Enterprise Plugins
 
-Need a custom plugin for your organization? [Contact us](https://github.com/Mohammed-Aman-Khan/genesis/issues).
+Need a custom plugin for your organization? [Contact us](https://github.com/Open-Vanguard/genesis/issues).
 
 ## Platform Support
 

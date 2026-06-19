@@ -56,7 +56,7 @@ Genesis works across macOS, Linux, and Windows with platform-specific implementa
 Genesis automatically detects your platform:
 
 ```typescript
-import { getPlatform } from "@genesis/core";
+import { getPlatform } from "@ossl/genesis-core";
 
 const platform = getPlatform();
 // Returns: "macos" | "linux" | "windows"
@@ -109,8 +109,8 @@ Different platforms use different installation methods:
 Write once, run anywhere:
 
 ```typescript
-import { defineConfig } from "@genesis/core";
-import { node, python } from "@genesis/plugins";
+import { defineConfig } from "@ossl/genesis-core";
+import { node, python } from "@ossl/genesis-plugins";
 
 // This config works on all platforms!
 export default defineConfig({
@@ -128,9 +128,9 @@ export default defineConfig({
 Need platform-specific behavior? Use conditional logic:
 
 ```typescript
-import { defineConfig } from "@genesis/core";
-import { node, python } from "@genesis/plugins";
-import { getPlatform } from "@genesis/core";
+import { defineConfig } from "@ossl/genesis-core";
+import { node, python } from "@ossl/genesis-plugins";
+import { getPlatform } from "@ossl/genesis-core";
 
 const platform = getPlatform();
 

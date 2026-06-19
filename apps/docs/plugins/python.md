@@ -9,7 +9,7 @@ The Python plugin provides automated installation and management of Python acros
 ## Installation
 
 ```bash
-bun add -D @genesis/plugins
+bun add -D @ossl/genesis-plugins
 ```
 
 ## Usage
@@ -17,8 +17,8 @@ bun add -D @genesis/plugins
 ### TypeScript
 
 ```typescript
-import { defineConfig } from "@genesis/core";
-import { python } from "@genesis/plugins";
+import { defineConfig } from "@ossl/genesis-core";
+import { python } from "@ossl/genesis-plugins";
 
 export default defineConfig({
   languages: [
@@ -152,8 +152,8 @@ Installing plugins...
 ### Single Version
 
 ```typescript
-import { defineConfig } from "@genesis/core";
-import { python } from "@genesis/plugins";
+import { defineConfig } from "@ossl/genesis-core";
+import { python } from "@ossl/genesis-plugins";
 
 export default defineConfig({
   languages: [
@@ -167,8 +167,8 @@ export default defineConfig({
 ### Multiple Versions
 
 ```typescript
-import { defineConfig } from "@genesis/core";
-import { python } from "@genesis/plugins";
+import { defineConfig } from "@ossl/genesis-core";
+import { python } from "@ossl/genesis-plugins";
 
 export default defineConfig({
   languages: [
@@ -181,8 +181,8 @@ export default defineConfig({
 ### With Other Plugins
 
 ```typescript
-import { defineConfig } from "@genesis/core";
-import { node, python } from "@genesis/plugins";
+import { defineConfig } from "@ossl/genesis-core";
+import { node, python } from "@ossl/genesis-plugins";
 
 export default defineConfig({
   tools: [

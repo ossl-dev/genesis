@@ -9,7 +9,7 @@ The Node.js plugin provides automated installation and management of Node.js acr
 ## Installation
 
 ```bash
-bun add -D @genesis/plugins
+bun add -D @ossl/genesis-plugins
 ```
 
 ## Usage
@@ -17,8 +17,8 @@ bun add -D @genesis/plugins
 ### TypeScript
 
 ```typescript
-import { defineConfig } from "@genesis/core";
-import { node } from "@genesis/plugins";
+import { defineConfig } from "@ossl/genesis-core";
+import { node } from "@ossl/genesis-plugins";
 
 export default defineConfig({
   tools: [
@@ -243,8 +243,8 @@ Installing plugins...
 ### Single Version
 
 ```typescript
-import { defineConfig } from "@genesis/core";
-import { node } from "@genesis/plugins";
+import { defineConfig } from "@ossl/genesis-core";
+import { node } from "@ossl/genesis-plugins";
 
 export default defineConfig({
   tools: [
@@ -259,8 +259,8 @@ export default defineConfig({
 ### Multiple Versions
 
 ```typescript
-import { defineConfig } from "@genesis/core";
-import { node } from "@genesis/plugins";
+import { defineConfig } from "@ossl/genesis-core";
+import { node } from "@ossl/genesis-plugins";
 
 export default defineConfig({
   tools: [
@@ -273,8 +273,8 @@ export default defineConfig({
 ### With Other Plugins
 
 ```typescript
-import { defineConfig } from "@genesis/core";
-import { node, python } from "@genesis/plugins";
+import { defineConfig } from "@ossl/genesis-core";
+import { node, python } from "@ossl/genesis-plugins";
 
 export default defineConfig({
   tools: [node({ version: "20", use_nvm: true })],

@@ -97,8 +97,8 @@ The Python version to install. Can be:
 ### TypeScript Configuration
 
 ```typescript
-import { defineConfig } from "@genesis/core";
-import { python } from "@genesis/plugins";
+import { defineConfig } from "@ossl/genesis-core";
+import { python } from "@ossl/genesis-plugins";
 
 export default defineConfig({
   languages: [
@@ -376,5 +376,5 @@ export default defineConfig({
 
 ---
 
-**Part of the [@genesis/plugins](../../README.md) package**
+**Part of the [@ossl/genesis-plugins](../../README.md) package**
 

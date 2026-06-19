@@ -52,7 +52,7 @@ async function scaffoldEnvironment(
         genesis: "genesis apply",
       },
       devDependencies: {
-        "@genesis/cli": "^0.1.0",
+        "@ossl/genesis-cli": "^0.1.0",
       },
     };
     await fs.promises.writeFile(pkgPath, JSON.stringify(pkg, null, 2));
@@ -65,7 +65,7 @@ async function scaffoldEnvironment(
     const configPath = path.join(cwd, "genesis.config.ts");
     if (!fs.existsSync(configPath)) {
       const source =
-        'import { defineConfig } from "@genesis/core";\nimport { node } from "@genesis/plugins/node";\n\nexport default defineConfig({\n  tools: [\n    node({ version: "20" })\n  ],\n  sdks: [],\n  languages: [],\n  repositories: [],\n  scripts: [],\n  env: {}\n});\n';
+        'import { defineConfig } from "@ossl/genesis-core";\nimport { node } from "@ossl/genesis-plugins/node";\n\nexport default defineConfig({\n  tools: [\n    node({ version: "20" })\n  ],\n  sdks: [],\n  languages: [],\n  repositories: [],\n  scripts: [],\n  env: {}\n});\n';
       await fs.promises.writeFile(configPath, source);
     }
   } else {

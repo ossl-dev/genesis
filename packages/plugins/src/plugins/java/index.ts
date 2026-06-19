@@ -6,7 +6,7 @@ import {
   getPlatform,
   createPackageManagerUpdateTask,
   createPackageInstallTask,
-} from "@genesis/core";
+} from "@ossl/genesis-core";
 import os from "node:os";
 import path from "node:path";
 import fs from "node:fs";
@@ -20,7 +20,7 @@ export function java(options: JavaOptions): GenesisPluginInstance<JavaOptions> {
   return {
     id: "java",
     category: "language",
-    module: "@genesis/plugins/java",
+    module: "@ossl/genesis-plugins/java",
     options: {
       ...options,
       distribution: options.distribution ?? "openjdk",

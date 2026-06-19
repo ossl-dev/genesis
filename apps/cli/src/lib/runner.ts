@@ -11,7 +11,7 @@ import {
   type DetectSummary,
   type ApplySummary,
   type ValidateSummary,
-} from "@genesis/core";
+} from "@ossl/genesis-core";
 import { loadGenesisConfig } from "./config-loader.js";
 
 export interface RunnerContext {

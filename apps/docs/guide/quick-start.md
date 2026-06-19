@@ -6,12 +6,12 @@ Get up and running with Genesis in under 5 minutes.
 
 ```bash
 # Install
-bun add -D @genesis/core @genesis/plugins @genesis/cli
+bun add -D @ossl/genesis-core @ossl/genesis-plugins @ossl/genesis-cli
 
 # Create config
 cat > genesis.config.ts << 'EOF'
-import { defineConfig } from "@genesis/core";
-import { node, python } from "@genesis/plugins";
+import { defineConfig } from "@ossl/genesis-core";
+import { node, python } from "@ossl/genesis-plugins";
 
 export default defineConfig({
   tools: [node({ version: "20", use_nvm: true })],
@@ -28,7 +28,7 @@ bunx genesis apply
 ### 1. Install Genesis (30 seconds)
 
 ```bash
-bun add -D @genesis/core @genesis/plugins @genesis/cli
+bun add -D @ossl/genesis-core @ossl/genesis-plugins @ossl/genesis-cli
 ```
 
 ### 2. Create Configuration (1 minute)
@@ -36,8 +36,8 @@ bun add -D @genesis/core @genesis/plugins @genesis/cli
 Create `genesis.config.ts`:
 
 ```typescript
-import { defineConfig } from "@genesis/core";
-import { node } from "@genesis/plugins";
+import { defineConfig } from "@ossl/genesis-core";
+import { node } from "@ossl/genesis-plugins";
 
 export default defineConfig({
   tools: [
@@ -62,8 +62,8 @@ That's it! Node.js 20 with NVM is now installed.
 ### Full-Stack JavaScript
 
 ```typescript
-import { defineConfig } from "@genesis/core";
-import { node } from "@genesis/plugins";
+import { defineConfig } from "@ossl/genesis-core";
+import { node } from "@ossl/genesis-plugins";
 
 export default defineConfig({
   tools: [
@@ -75,8 +75,8 @@ export default defineConfig({
 ### Python Development
 
 ```typescript
-import { defineConfig } from "@genesis/core";
-import { python } from "@genesis/plugins";
+import { defineConfig } from "@ossl/genesis-core";
+import { python } from "@ossl/genesis-plugins";
 
 export default defineConfig({
   languages: [
@@ -88,8 +88,8 @@ export default defineConfig({
 ### Multi-Language Project
 
 ```typescript
-import { defineConfig } from "@genesis/core";
-import { node, python } from "@genesis/plugins";
+import { defineConfig } from "@ossl/genesis-core";
+import { node, python } from "@ossl/genesis-plugins";
 
 export default defineConfig({
   tools: [

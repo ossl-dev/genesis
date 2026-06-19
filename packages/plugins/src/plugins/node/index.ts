@@ -8,7 +8,7 @@ import {
   createPackageInstallTask,
   createCommandCheckTask,
   createCustomTask,
-} from "@genesis/core";
+} from "@ossl/genesis-core";
 import os from "node:os";
 import path from "node:path";
 import fs from "node:fs";
@@ -23,7 +23,7 @@ export function node(options: NodeOptions): GenesisPluginInstance<NodeOptions> {
   return {
     id: "node",
     category: "tool",
-    module: "@genesis/plugins/node",
+    module: "@ossl/genesis-plugins/node",
     options: {
       ...options,
       use_nvm: options.use_nvm ?? true,

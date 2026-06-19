@@ -1,4 +1,4 @@
-# @genesis/core
+# @ossl/genesis-core
 
 > **The blazing fast heart of Genesis environment provisioning**
 
@@ -293,7 +293,7 @@ const predictions = await predictor.predict(config);
 ### Configuration Management
 
 ```typescript
-import { defineConfig, loadConfig, validateConfig } from "@genesis/core";
+import { defineConfig, loadConfig, validateConfig } from "@ossl/genesis-core";
 
 // Type-safe config creation
 const config = defineConfig({
@@ -315,7 +315,7 @@ const validated = await validateConfig(loaded);
 ### Plugin Development
 
 ```typescript
-import { GenesisPlugin, PluginRuntime, createPlugin } from "@genesis/core";
+import { GenesisPlugin, PluginRuntime, createPlugin } from "@ossl/genesis-core";
 
 // Create a new plugin
 export function createMyToolPlugin(instance: PluginInstance): GenesisPlugin {
@@ -341,7 +341,7 @@ export function createMyToolPlugin(instance: PluginInstance): GenesisPlugin {
 ### Task Registry
 
 ```typescript
-import { TaskRegistry, Task } from "@genesis/core";
+import { TaskRegistry, Task } from "@ossl/genesis-core";
 
 const registry = new TaskRegistry();
 
@@ -364,7 +364,7 @@ const results = await registry.executeAll();
 ### Parallel Execution
 
 ```typescript
-import { ParallelExecutionEngine } from "@genesis/core";
+import { ParallelExecutionEngine } from "@ossl/genesis-core";
 
 const engine = new ParallelExecutionEngine();
 
@@ -383,7 +383,7 @@ console.log(`Parallel speedup: ${metrics.speedup}x`);
 ### Environment Caching
 
 ```typescript
-import { EnvironmentCacheManager } from "@genesis/core";
+import { EnvironmentCacheManager } from "@ossl/genesis-core";
 
 const cache = new EnvironmentCacheManager();
 
@@ -405,7 +405,7 @@ await cache.import(bundle);
 ### Building a Custom Plugin
 
 ```typescript
-import { GenesisPlugin, createPlugin } from "@genesis/core";
+import { GenesisPlugin, createPlugin } from "@ossl/genesis-core";
 
 export function createRustPlugin(): GenesisPlugin {
   return createPlugin({
@@ -447,7 +447,7 @@ export function createRustPlugin(): GenesisPlugin {
 ### Custom Task Registry Usage
 
 ```typescript
-import { TaskRegistry } from "@genesis/core";
+import { TaskRegistry } from "@ossl/genesis-core";
 
 class CustomTaskRegistry extends TaskRegistry {
   // Add custom task types
@@ -482,7 +482,7 @@ class CustomTaskRegistry extends TaskRegistry {
 ### Performance Monitoring
 
 ```typescript
-import { PerformanceMonitor } from "@genesis/core";
+import { PerformanceMonitor } from "@ossl/genesis-core";
 
 const monitor = new PerformanceMonitor();
 
@@ -686,7 +686,7 @@ import {
   runValidate,
   runDiff,
   TaskRegistry,
-} from "@genesis/core";
+} from "@ossl/genesis-core";
 
 // Collect all plugin instances from config
 const instances = collectPluginInstances(config);
@@ -728,7 +728,7 @@ Located in `src/execution/`, provides task deduplication and batching.
 #### Task Registry
 
 ```typescript
-import { TaskRegistry } from "@genesis/core";
+import { TaskRegistry } from "@ossl/genesis-core";
 
 const taskRegistry = new TaskRegistry(logger);
 
@@ -756,7 +756,7 @@ import {
   createPackageInstallTask,
   createCommandCheckTask,
   createCustomTask,
-} from "@genesis/core";
+} from "@ossl/genesis-core";
 
 // Package manager update (deduplicated across plugins)
 const updateTask = createPackageManagerUpdateTask(cwd, env);
@@ -831,7 +831,7 @@ Located in `src/os/`, provides cross-platform utilities.
 #### Platform Detection
 
 ```typescript
-import { getPlatform, type Platform } from "@genesis/core";
+import { getPlatform, type Platform } from "@ossl/genesis-core";
 
 const platform = getPlatform();
 // Returns: "macos" | "windows" | "linux"
@@ -846,7 +846,7 @@ if (platform === "windows") {
 #### Shell Command Execution
 
 ```typescript
-import { runCommand } from "@genesis/core";
+import { runCommand } from "@ossl/genesis-core";
 
 const result = await runCommand("node", ["--version"], {
   cwd: "/path/to/directory",
@@ -865,7 +865,7 @@ Located in `src/fs/`, provides file system utilities.
 #### Download Files
 
 ```typescript
-import { downloadFile } from "@genesis/core";
+import { downloadFile } from "@ossl/genesis-core";
 
 await downloadFile(
   "https://example.com/file.tar.gz",
@@ -876,7 +876,7 @@ await downloadFile(
 #### Path Utilities
 
 ```typescript
-import { resolvePath, ensureDir } from "@genesis/core";
+import { resolvePath, ensureDir } from "@ossl/genesis-core";
 
 const absolutePath = resolvePath("./relative/path");
 await ensureDir("/path/to/directory");
@@ -889,7 +889,7 @@ Located in `src/env/`, manages environment variables and PATH.
 #### PATH Manipulation
 
 ```typescript
-import { editPath } from "@genesis/core";
+import { editPath } from "@ossl/genesis-core";
 
 // Add directory to PATH
 await editPath({
@@ -907,7 +907,7 @@ await editPath({
 #### Environment Variables
 
 ```typescript
-import { applyEnvPatch } from "@genesis/core";
+import { applyEnvPatch } from "@ossl/genesis-core";
 
 await applyEnvPatch({
   NODE_ENV: "development",
@@ -922,7 +922,7 @@ Located in `src/utils/`, provides structured logging.
 #### Logger
 
 ```typescript
-import { Logger } from "@genesis/core";
+import { Logger } from "@ossl/genesis-core";
 
 const logger = new Logger({
   level: "info", // "debug" | "info" | "warn" | "error"
@@ -1009,14 +1009,14 @@ export { Logger, type LogLevel } from "./utils/logger.js";
 ### Creating a Configuration
 
 ```typescript
-import { defineConfig } from "@genesis/core";
+import { defineConfig } from "@ossl/genesis-core";
 
 export default defineConfig({
   tools: [
     {
       id: "node",
       category: "tool",
-      module: "@genesis/plugins/node",
+      module: "@ossl/genesis-plugins/node",
       options: { version: "20", use_nvm: true },
     },
   ],
@@ -1037,7 +1037,7 @@ import {
   runApply,
   Logger,
   TaskRegistry,
-} from "@genesis/core";
+} from "@ossl/genesis-core";
 
 // Load configuration
 const config = await loadConfig("./genesis.config.yaml");
@@ -1079,7 +1079,7 @@ import {
   createPackageManagerUpdateTask,
   createPackageInstallTask,
   Logger,
-} from "@genesis/core";
+} from "@ossl/genesis-core";
 
 const logger = new Logger({ level: "info" });
 const taskRegistry = new TaskRegistry(logger);

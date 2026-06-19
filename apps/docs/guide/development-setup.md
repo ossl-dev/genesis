@@ -46,7 +46,7 @@ genesis/
 bun run build
 
 # Build specific package
-bun run build --filter=@genesis/core
+bun run build --filter=@ossl/genesis-core
 ```
 
 ## Development Workflow
@@ -67,8 +67,8 @@ Create a test configuration in `examples/`:
 
 ```typescript
 // examples/test.config.ts
-import { defineConfig } from "@genesis/core";
-import { node } from "@genesis/plugins";
+import { defineConfig } from "@ossl/genesis-core";
+import { node } from "@ossl/genesis-plugins";
 
 export default defineConfig({
   tools: [
@@ -96,7 +96,7 @@ bun run docs:build
 
 ## Package Development
 
-### Core Package (`@genesis/core`)
+### Core Package (`@ossl/genesis-core`)
 
 Located in `packages/core/`:
 
@@ -123,7 +123,7 @@ cd packages/core
 bun run build
 ```
 
-### Plugins Package (`@genesis/plugins`)
+### Plugins Package (`@ossl/genesis-plugins`)
 
 Located in `packages/plugins/`:
 
@@ -146,7 +146,7 @@ cd packages/plugins
 bun run build
 ```
 
-### CLI Package (`@genesis/cli`)
+### CLI Package (`@ossl/genesis-cli`)
 
 Located in `apps/cli/`:
 
@@ -184,7 +184,7 @@ import type {
   GenesisPlugin,
   GenesisPluginInstance,
   PluginRuntime,
-} from "@genesis/core";
+} from "@ossl/genesis-core";
 
 export interface MyToolOptions {
   version: string;
@@ -194,7 +194,7 @@ export function myTool(options: MyToolOptions): GenesisPluginInstance<MyToolOpti
   return {
     id: "my-tool",
     category: "tool",
-    module: "@genesis/plugins/my-tool",
+    module: "@ossl/genesis-plugins/my-tool",
     options,
   };
 }

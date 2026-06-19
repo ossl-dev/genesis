@@ -6,7 +6,7 @@ import {
   getPlatform,
   createPackageManagerUpdateTask,
   createPackageInstallTask,
-} from "@genesis/core";
+} from "@ossl/genesis-core";
 
 export interface PythonOptions {
   version: string;
@@ -18,7 +18,7 @@ export function python(
   return {
     id: "python",
     category: "language",
-    module: "@genesis/plugins/python",
+    module: "@ossl/genesis-plugins/python",
     options,
   };
 }

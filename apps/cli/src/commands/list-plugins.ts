@@ -8,7 +8,7 @@ export function registerListPluginsCommand(program: Command): void {
       const plugins = [
         {
           id: "node",
-          module: "@genesis/plugins/node",
+          module: "@ossl/genesis-plugins/node",
           description: "Node.js runtime",
         },
       ];

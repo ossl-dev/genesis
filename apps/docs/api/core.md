@@ -1,6 +1,6 @@
 # Core API Reference
 
-Complete API reference for `@genesis/core`.
+Complete API reference for `@ossl/genesis-core`.
 
 ## Configuration
 
@@ -20,7 +20,7 @@ function defineConfig(config: GenesisConfig): GenesisConfig
 **Example:**
 
 ```typescript
-import { defineConfig } from "@genesis/core";
+import { defineConfig } from "@ossl/genesis-core";
 
 export default defineConfig({
   tools: [],
@@ -173,7 +173,7 @@ function getPlatform(): "macos" | "linux" | "windows"
 **Example:**
 
 ```typescript
-import { getPlatform } from "@genesis/core";
+import { getPlatform } from "@ossl/genesis-core";
 
 const platform = getPlatform();
 if (platform === "macos") {
@@ -213,7 +213,7 @@ function runCommand(
 **Example:**
 
 ```typescript
-import { runCommand } from "@genesis/core";
+import { runCommand } from "@ossl/genesis-core";
 
 const result = await runCommand("node", ["--version"], {
   cwd: "/path/to/dir",
@@ -315,7 +315,7 @@ function setEnv(key: string, value: string): void
 
 ## Type Exports
 
-All types are exported from `@genesis/core`:
+All types are exported from `@ossl/genesis-core`:
 
 ```typescript
 export type {

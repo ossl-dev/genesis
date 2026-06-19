@@ -330,7 +330,7 @@ execute: async () => {
 ### Basic Usage
 
 ```typescript
-import { TaskRegistry, createPackageManagerUpdateTask } from "@genesis/core";
+import { TaskRegistry, createPackageManagerUpdateTask } from "@ossl/genesis-core";
 
 const taskRegistry = new TaskRegistry();
 

@@ -8,7 +8,7 @@ import {
   createPackageInstallTask,
   createCommandCheckTask,
   createCustomTask,
-} from "@genesis/core";
+} from "@ossl/genesis-core";
 import os from "node:os";
 import path from "node:path";
 import fs from "node:fs";
@@ -26,7 +26,7 @@ export function homebrew(
   return {
     id: "homebrew",
     category: "tool",
-    module: "@genesis/plugins/homebrew",
+    module: "@ossl/genesis-plugins/homebrew",
     options: {
       update_packages: options.update_packages ?? true,
       install_cask: options.install_cask ?? true,

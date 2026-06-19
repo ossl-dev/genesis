@@ -132,25 +132,25 @@ genesis --help
 ### npm (Global)
 
 ```bash
-npm install -g @genesis/cli
+npm install -g @ossl/genesis-cli
 ```
 
 ### Bun (Global)
 
 ```bash
-bun add -g @genesis/cli
+bun add -g @ossl/genesis-cli
 ```
 
 ### Yarn (Global)
 
 ```bash
-yarn global add @genesis/cli
+yarn global add @ossl/genesis-cli
 ```
 
 ### pnpm (Global)
 
 ```bash
-pnpm add -g @genesis/cli
+pnpm add -g @ossl/genesis-cli
 ```
 
 ---
@@ -202,16 +202,16 @@ sudo mv genesis /usr/local/bin/
 
 ```bash
 # npm
-npm update -g @genesis/cli
+npm update -g @ossl/genesis-cli
 
 # Bun
-bun update -g @genesis/cli
+bun update -g @ossl/genesis-cli
 
 # Yarn
-yarn global upgrade @genesis/cli
+yarn global upgrade @ossl/genesis-cli
 
 # pnpm
-pnpm update -g @genesis/cli
+pnpm update -g @ossl/genesis-cli
 ```
 
 ---
@@ -232,16 +232,16 @@ rm ~/.local/bin/genesis
 
 ```bash
 # npm
-npm uninstall -g @genesis/cli
+npm uninstall -g @ossl/genesis-cli
 
 # Bun
-bun remove -g @genesis/cli
+bun remove -g @ossl/genesis-cli
 
 # Yarn
-yarn global remove @genesis/cli
+yarn global remove @ossl/genesis-cli
 
 # pnpm
-pnpm remove -g @genesis/cli
+pnpm remove -g @ossl/genesis-cli
 ```
 
 ### Clean Up Configuration

@@ -18,8 +18,8 @@ Add to your Genesis configuration:
 ### TypeScript Configuration
 
 ```typescript
-import { defineConfig } from "@genesis/core";
-import { go } from "@genesis/plugins/go";
+import { defineConfig } from "@ossl/genesis-core";
+import { go } from "@ossl/genesis-plugins/go";
 
 export default defineConfig({
   languages: [
@@ -79,8 +79,8 @@ export PATH="/usr/local/go/bin:$PATH"
 ### Install Go 1.21
 
 ```typescript
-import { defineConfig } from "@genesis/core";
-import { go } from "@genesis/plugins/go";
+import { defineConfig } from "@ossl/genesis-core";
+import { go } from "@ossl/genesis-plugins/go";
 
 export default defineConfig({
   languages: [
@@ -94,8 +94,8 @@ export default defineConfig({
 ### Install Latest Go
 
 ```typescript
-import { defineConfig } from "@genesis/core";
-import { go } from "@genesis/plugins/go";
+import { defineConfig } from "@ossl/genesis-core";
+import { go } from "@ossl/genesis-plugins/go";
 
 export default defineConfig({
   languages: [
@@ -109,8 +109,8 @@ export default defineConfig({
 ### Multiple Go Versions
 
 ```typescript
-import { defineConfig } from "@genesis/core";
-import { go } from "@genesis/plugins/go";
+import { defineConfig } from "@ossl/genesis-core";
+import { go } from "@ossl/genesis-plugins/go";
 
 export default defineConfig({
   languages: [

@@ -6,7 +6,7 @@ import {
   getPlatform,
   createPackageManagerUpdateTask,
   createPackageInstallTask,
-} from "@genesis/core";
+} from "@ossl/genesis-core";
 import os from "node:os";
 import path from "node:path";
 import fs from "node:fs";
@@ -23,7 +23,7 @@ export function docker(
   return {
     id: "docker",
     category: "tool",
-    module: "@genesis/plugins/docker",
+    module: "@ossl/genesis-plugins/docker",
     options: {
       version: options.version ?? "latest",
       include_compose: options.include_compose ?? true,

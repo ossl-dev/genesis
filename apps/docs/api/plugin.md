@@ -25,7 +25,7 @@ export function myPlugin(
   return {
     id: "my-plugin",
     category: "tool",
-    module: "@genesis/plugins/my-plugin",
+    module: "@ossl/genesis-plugins/my-plugin",
     options,
   };
 }
@@ -359,13 +359,13 @@ import type {
   DetectResult,
   ApplyResult,
   ValidateResult,
-} from "@genesis/core";
+} from "@ossl/genesis-core";
 import {
   getPlatform,
   runCommand,
   createPackageManagerUpdateTask,
   createPackageInstallTask,
-} from "@genesis/core";
+} from "@ossl/genesis-core";
 
 export interface MyToolOptions {
   version: string;
@@ -377,7 +377,7 @@ export function myTool(
   return {
     id: "my-tool",
     category: "tool",
-    module: "@genesis/plugins/my-tool",
+    module: "@ossl/genesis-plugins/my-tool",
     options,
   };
 }

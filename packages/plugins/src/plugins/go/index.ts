@@ -6,7 +6,7 @@ import {
   getPlatform,
   createPackageManagerUpdateTask,
   createPackageInstallTask,
-} from "@genesis/core";
+} from "@ossl/genesis-core";
 import os from "node:os";
 import path from "node:path";
 import fs from "node:fs";
@@ -19,7 +19,7 @@ export function go(options: GoOptions): GenesisPluginInstance<GoOptions> {
   return {
     id: "go",
     category: "language",
-    module: "@genesis/plugins/go",
+    module: "@ossl/genesis-plugins/go",
     options,
   };
 }

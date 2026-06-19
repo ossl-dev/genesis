@@ -32,8 +32,8 @@ Software development kits:
 ### Import Plugins
 
 ```typescript
-import { defineConfig } from "@genesis/core";
-import { node, python } from "@genesis/plugins";
+import { defineConfig } from "@ossl/genesis-core";
+import { node, python } from "@ossl/genesis-plugins";
 ```
 
 ### Configure Plugins

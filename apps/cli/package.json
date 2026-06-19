@@ -1,5 +1,5 @@
 {
-  "name": "@genesis/cli",
+  "name": "@ossl/genesis-cli",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -24,7 +24,7 @@
     "build:standalone-all": "bun build src/index.ts --compile --outfile bin/genesis --target bun-darwin-x64,bun-darwin-arm64,bun-linux-x64,bun-linux-arm64,bun-windows-x64"
   },
   "dependencies": {
-    "@genesis/core": "workspace:*",
+    "@ossl/genesis-core": "workspace:*",
     "commander": "14.0.2",
     "inquirer": "13.0.1"
   },

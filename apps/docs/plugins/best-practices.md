@@ -263,7 +263,7 @@ export function myTool(options: MyToolOptions): GenesisPluginInstance<MyToolOpti
   return {
     id: "my-tool",
     category: "tool",
-    module: "@genesis/plugins/my-tool",
+    module: "@ossl/genesis-plugins/my-tool",
     options,
   };
 }
@@ -297,7 +297,7 @@ export function myTool(options: MyToolOptions): GenesisPluginInstance<MyToolOpti
   return {
     id: "my-tool",
     category: "tool",
-    module: "@genesis/plugins/my-tool",
+    module: "@ossl/genesis-plugins/my-tool",
     options,
   };
 }
@@ -378,7 +378,7 @@ export interface MyToolOptions {
  * 
  * @example
  * ```typescript
- * import { myTool } from "@genesis/plugins";
+ * import { myTool } from "@ossl/genesis-plugins";
  * 
  * export default defineConfig({
  *   tools: [

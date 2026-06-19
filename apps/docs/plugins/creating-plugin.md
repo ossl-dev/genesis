@@ -33,13 +33,13 @@ export interface MyToolOptions {
 ## Step 3: Create Plugin Factory
 
 ```typescript
-import type { GenesisPluginInstance } from "@genesis/core";
+import type { GenesisPluginInstance } from "@ossl/genesis-core";
 
 export function myTool(options: MyToolOptions): GenesisPluginInstance<MyToolOptions> {
   return {
     id: "my-tool",
     category: "tool",  // or "language" or "sdk"
-    module: "@genesis/plugins/my-tool",
+    module: "@ossl/genesis-plugins/my-tool",
     options,
   };
 }
@@ -54,13 +54,13 @@ import type {
   DetectResult,
   ApplyResult,
   ValidateResult,
-} from "@genesis/core";
+} from "@ossl/genesis-core";
 import {
   getPlatform,
   runCommand,
   createPackageManagerUpdateTask,
   createPackageInstallTask,
-} from "@genesis/core";
+} from "@ossl/genesis-core";
 
 export function createPlugin(
   instance: GenesisPluginInstance<MyToolOptions>
@@ -221,8 +221,8 @@ bun run build
 # Test
 cd examples
 cat > test-my-tool.ts << 'EOF'
-import { defineConfig } from "@genesis/core";
-import { myTool } from "@genesis/plugins";
+import { defineConfig } from "@ossl/genesis-core";
+import { myTool } from "@ossl/genesis-plugins";
 
 export default defineConfig({
   tools: [
@@ -248,8 +248,8 @@ Install and manage My Tool.
 ## Usage
 
 \`\`\`typescript
-import { defineConfig } from "@genesis/core";
-import { myTool } from "@genesis/plugins";
+import { defineConfig } from "@ossl/genesis-core";
+import { myTool } from "@ossl/genesis-plugins";
 
 export default defineConfig({
   tools: [
@@ -375,7 +375,7 @@ describe("myTool", () => {
 
 ### Internal Plugin
 
-Add to `@genesis/plugins` package (requires PR).
+Add to `@ossl/genesis-plugins` package (requires PR).
 
 ### External Plugin
 
@@ -386,7 +386,7 @@ Publish as separate npm package:
   "name": "@my-org/genesis-plugin-my-tool",
   "version": "1.0.0",
   "peerDependencies": {
-    "@genesis/core": "^0.1.0"
+    "@ossl/genesis-core": "^0.1.0"
   }
 }
 ```

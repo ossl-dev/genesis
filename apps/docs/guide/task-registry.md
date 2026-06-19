@@ -201,7 +201,7 @@ Genesis provides pre-built helpers for common operations:
 ### Package Manager Update
 
 ```typescript
-import { createPackageManagerUpdateTask } from "@genesis/core";
+import { createPackageManagerUpdateTask } from "@ossl/genesis-core";
 
 const task = createPackageManagerUpdateTask(cwd, env);
 // Creates: linux:package-manager:apt-update (on Linux)
@@ -211,7 +211,7 @@ const task = createPackageManagerUpdateTask(cwd, env);
 ### Package Installation
 
 ```typescript
-import { createPackageInstallTask } from "@genesis/core";
+import { createPackageInstallTask } from "@ossl/genesis-core";
 
 const task = createPackageInstallTask("curl", cwd, env);
 // Creates: linux:package:install:curl (on Linux)
@@ -221,7 +221,7 @@ const task = createPackageInstallTask("curl", cwd, env);
 ### Command Check
 
 ```typescript
-import { createCommandCheckTask } from "@genesis/core";
+import { createCommandCheckTask } from "@ossl/genesis-core";
 
 const task = createCommandCheckTask("curl", cwd, env);
 // Creates: system:command:check:curl
@@ -230,7 +230,7 @@ const task = createCommandCheckTask("curl", cwd, env);
 ### Custom Task
 
 ```typescript
-import { createCustomTask } from "@genesis/core";
+import { createCustomTask } from "@ossl/genesis-core";
 
 const task = createCustomTask(
   "custom:my-task",
@@ -250,8 +250,8 @@ const task = createCustomTask(
 ### Configuration
 
 ```typescript
-import { defineConfig } from "@genesis/core";
-import { node, python } from "@genesis/plugins";
+import { defineConfig } from "@ossl/genesis-core";
+import { node, python } from "@ossl/genesis-plugins";
 
 export default defineConfig({
   tools: [

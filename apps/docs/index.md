@@ -111,7 +111,7 @@ genesis apply
 ::: code-group
 
 ```typescript [genesis.config.ts]
-import { defineConfig } from "@genesis/core";
+import { defineConfig } from "@ossl/genesis-core";
 import {
   node,
   python,
@@ -120,7 +120,7 @@ import {
   go,
   docker,
   homebrew,
-} from "@genesis/plugins";
+} from "@ossl/genesis-plugins";
 
 export default defineConfig({
   tools: [

@@ -209,8 +209,8 @@ env:
 ### TypeScript (Type Safe & Powerful)
 
 ```typescript
-import { defineConfig } from "@genesis/core";
-import { node, python, git } from "@genesis/plugins";
+import { defineConfig } from "@ossl/genesis-core";
+import { node, python, git } from "@ossl/genesis-plugins";
 
 export default defineConfig({
   tools: [

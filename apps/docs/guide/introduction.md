@@ -27,8 +27,8 @@ Genesis solves these problems with:
 Define your entire environment in a single file:
 
 ```typescript
-import { defineConfig } from "@genesis/core";
-import { node, python } from "@genesis/plugins";
+import { defineConfig } from "@ossl/genesis-core";
+import { node, python } from "@ossl/genesis-plugins";
 
 export default defineConfig({
   tools: [

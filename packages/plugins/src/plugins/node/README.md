@@ -117,8 +117,8 @@ Whether to use NVM for installation.
 ### TypeScript Configuration
 
 ```typescript
-import { defineConfig } from "@genesis/core";
-import { node } from "@genesis/plugins";
+import { defineConfig } from "@ossl/genesis-core";
+import { node } from "@ossl/genesis-plugins";
 
 export default defineConfig({
   tools: [
@@ -392,4 +392,4 @@ nvm use
 
 ---
 
-**Part of the [@genesis/plugins](../../README.md) package**
+**Part of the [@ossl/genesis-plugins](../../README.md) package**

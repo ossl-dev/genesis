@@ -162,8 +162,8 @@ async validate(runtime): Promise<ValidateResult> {
 ### TypeScript Configuration
 
 ```typescript
-import { defineConfig } from "@genesis/core";
-import { node, python } from "@genesis/plugins";
+import { defineConfig } from "@ossl/genesis-core";
+import { node, python } from "@ossl/genesis-plugins";
 
 export default defineConfig({
   tools: [

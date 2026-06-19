@@ -20,8 +20,8 @@ The Git plugin provides comprehensive Git installation and management for Genesi
 ### Basic Configuration
 
 ```typescript
-import { defineConfig } from "@genesis/core";
-import { git } from "@genesis/plugins/git";
+import { defineConfig } from "@ossl/genesis-core";
+import { git } from "@ossl/genesis-plugins/git";
 
 export default defineConfig({
   tools: [
@@ -124,8 +124,8 @@ git config --global pull.rebase false
 ### Basic Git Installation
 
 ```typescript
-import { defineConfig } from "@genesis/core";
-import { git } from "@genesis/plugins/git";
+import { defineConfig } from "@ossl/genesis-core";
+import { git } from "@ossl/genesis-plugins/git";
 
 export default defineConfig({
   tools: [
@@ -137,8 +137,8 @@ export default defineConfig({
 ### Specific Version Installation
 
 ```typescript
-import { defineConfig } from "@genesis/core";
-import { git } from "@genesis/plugins/git";
+import { defineConfig } from "@ossl/genesis-core";
+import { git } from "@ossl/genesis-plugins/git";
 
 export default defineConfig({
   tools: [
@@ -153,8 +153,8 @@ export default defineConfig({
 ### Source Installation
 
 ```typescript
-import { defineConfig } from "@genesis/core";
-import { git } from "@genesis/plugins/git";
+import { defineConfig } from "@ossl/genesis-core";
+import { git } from "@ossl/genesis-plugins/git";
 
 export default defineConfig({
   tools: [

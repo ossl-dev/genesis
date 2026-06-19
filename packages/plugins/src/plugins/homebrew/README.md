@@ -18,8 +18,8 @@ Add to your Genesis configuration:
 ### TypeScript Configuration
 
 ```typescript
-import { defineConfig } from "@genesis/core";
-import { homebrew } from "@genesis/plugins/homebrew";
+import { defineConfig } from "@ossl/genesis-core";
+import { homebrew } from "@ossl/genesis-plugins/homebrew";
 
 export default defineConfig({
   tools: [
@@ -100,8 +100,8 @@ uname -m
 ### Basic Homebrew Installation
 
 ```typescript
-import { defineConfig } from "@genesis/core";
-import { homebrew } from "@genesis/plugins/homebrew";
+import { defineConfig } from "@ossl/genesis-core";
+import { homebrew } from "@ossl/genesis-plugins/homebrew";
 
 export default defineConfig({
   tools: [
@@ -113,8 +113,8 @@ export default defineConfig({
 ### Minimal Installation
 
 ```typescript
-import { defineConfig } from "@genesis/core";
-import { homebrew } from "@genesis/plugins/homebrew";
+import { defineConfig } from "@ossl/genesis-core";
+import { homebrew } from "@ossl/genesis-plugins/homebrew";
 
 export default defineConfig({
   tools: [

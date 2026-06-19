@@ -1,4 +1,4 @@
-# @genesis/plugins
+# @ossl/genesis-plugins
 
 > Official plugin collection for Genesis
 
@@ -23,7 +23,7 @@ This package contains the official plugins for Genesis, providing support for va
 
 ## Overview
 
-`@genesis/plugins` provides a collection of ready-to-use plugins for common development tools and environments. Each plugin handles:
+`@ossl/genesis-plugins` provides a collection of ready-to-use plugins for common development tools and environments. Each plugin handles:
 
 - **Detection**: Check if the tool is already installed and at the correct version
 - **Task Registration**: Register system-level prerequisites (deduplicated across plugins)
@@ -38,13 +38,13 @@ This package contains the official plugins for Genesis, providing support for va
 
 ```bash
 # Using npm
-npm install @genesis/plugins
+npm install @ossl/genesis-plugins
 
 # Using bun
-bun add @genesis/plugins
+bun add @ossl/genesis-plugins
 
 # Using yarn
-yarn add @genesis/plugins
+yarn add @ossl/genesis-plugins
 ```
 
 ---
@@ -68,7 +68,7 @@ Install and manage Node.js runtime.
 **Usage:**
 
 ```typescript
-import { node } from "@genesis/plugins";
+import { node } from "@ossl/genesis-plugins";
 
 export default defineConfig({
   tools: [
@@ -111,7 +111,7 @@ Install and manage Git version control system.
 **Usage:**
 
 ```typescript
-import { git } from "@genesis/plugins";
+import { git } from "@ossl/genesis-plugins";
 
 export default defineConfig({
   tools: [
@@ -154,7 +154,7 @@ Install and manage Docker containerization platform.
 **Usage:**
 
 ```typescript
-import { docker } from "@genesis/plugins";
+import { docker } from "@ossl/genesis-plugins";
 
 export default defineConfig({
   tools: [
@@ -200,7 +200,7 @@ Install and manage Homebrew package manager (macOS only).
 **Usage:**
 
 ```typescript
-import { homebrew } from "@genesis/plugins";
+import { homebrew } from "@ossl/genesis-plugins";
 
 export default defineConfig({
   tools: [
@@ -257,7 +257,7 @@ Install and manage Python runtime.
 **Usage:**
 
 ```typescript
-import { python } from "@genesis/plugins";
+import { python } from "@ossl/genesis-plugins";
 
 export default defineConfig({
   languages: [
@@ -297,7 +297,7 @@ Install and manage Java Development Kit (JDK).
 **Usage:**
 
 ```typescript
-import { java } from "@genesis/plugins";
+import { java } from "@ossl/genesis-plugins";
 
 export default defineConfig({
   languages: [
@@ -340,7 +340,7 @@ Install and manage Go programming language.
 **Usage:**
 
 ```typescript
-import { go } from "@genesis/plugins";
+import { go } from "@ossl/genesis-plugins";
 
 export default defineConfig({
   languages: [
@@ -391,7 +391,7 @@ Install and manage Python runtime.
 **Usage:**
 
 ```typescript
-import { python } from "@genesis/plugins";
+import { python } from "@ossl/genesis-plugins";
 
 export default defineConfig({
   languages: [
@@ -520,13 +520,13 @@ import type {
   DetectResult,
   ApplyResult,
   ValidateResult,
-} from "@genesis/core";
+} from "@ossl/genesis-core";
 import {
   getPlatform,
   runCommand,
   createPackageManagerUpdateTask,
   createPackageInstallTask,
-} from "@genesis/core";
+} from "@ossl/genesis-core";
 
 export interface MyToolOptions {
   version: string;
@@ -539,7 +539,7 @@ export function myTool(
   return {
     id: "my-tool",
     category: "tool",
-    module: "@genesis/plugins/my-tool",
+    module: "@ossl/genesis-plugins/my-tool",
     options,
   };
 }

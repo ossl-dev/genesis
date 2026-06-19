@@ -1,5 +1,5 @@
 {
-  "name": "@genesis/plugins",
+  "name": "@ossl/genesis-plugins",
   "version": "0.1.0",
   "type": "module",
   "main": "dist/index.js",
@@ -46,7 +46,7 @@
     "test": "vitest"
   },
   "dependencies": {
-    "@genesis/core": "workspace:*"
+    "@ossl/genesis-core": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.6.0",

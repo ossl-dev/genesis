@@ -11,8 +11,8 @@ Genesis supports two configuration formats:
 Create `genesis.config.ts` in your project root:
 
 ```typescript
-import { defineConfig } from "@genesis/core";
-import { node, python } from "@genesis/plugins";
+import { defineConfig } from "@ossl/genesis-core";
+import { node, python } from "@ossl/genesis-plugins";
 
 export default defineConfig({
   tools: [],
@@ -59,7 +59,7 @@ interface GenesisConfig {
 Each plugin is configured with its specific options:
 
 ```typescript
-import { node, python } from "@genesis/plugins";
+import { node, python } from "@ossl/genesis-plugins";
 
 export default defineConfig({
   tools: [
@@ -83,7 +83,7 @@ export default defineConfig({
 Development tools and utilities:
 
 ```typescript
-import { node } from "@genesis/plugins";
+import { node } from "@ossl/genesis-plugins";
 
 export default defineConfig({
   tools: [
@@ -100,7 +100,7 @@ export default defineConfig({
 Programming language runtimes:
 
 ```typescript
-import { python } from "@genesis/plugins";
+import { python } from "@ossl/genesis-plugins";
 
 export default defineConfig({
   languages: [
@@ -128,8 +128,8 @@ export default defineConfig({
 Here's a comprehensive configuration:
 
 ```typescript
-import { defineConfig } from "@genesis/core";
-import { node, python } from "@genesis/plugins";
+import { defineConfig } from "@ossl/genesis-core";
+import { node, python } from "@ossl/genesis-plugins";
 
 export default defineConfig({
   // Development tools
@@ -156,8 +156,8 @@ export default defineConfig({
 Install multiple versions of the same tool:
 
 ```typescript
-import { defineConfig } from "@genesis/core";
-import { node, python } from "@genesis/plugins";
+import { defineConfig } from "@ossl/genesis-core";
+import { node, python } from "@ossl/genesis-plugins";
 
 export default defineConfig({
   tools: [
@@ -176,8 +176,8 @@ export default defineConfig({
 ### Using Environment Variables
 
 ```typescript
-import { defineConfig } from "@genesis/core";
-import { node } from "@genesis/plugins";
+import { defineConfig } from "@ossl/genesis-core";
+import { node } from "@ossl/genesis-plugins";
 
 const nodeVersion = process.env.NODE_VERSION || "20";
 
@@ -194,8 +194,8 @@ export default defineConfig({
 ### Conditional Configuration
 
 ```typescript
-import { defineConfig } from "@genesis/core";
-import { node, python } from "@genesis/plugins";
+import { defineConfig } from "@ossl/genesis-core";
+import { node, python } from "@ossl/genesis-plugins";
 
 const isDevelopment = process.env.NODE_ENV === "development";
 
@@ -218,7 +218,7 @@ Create reusable configuration modules:
 
 ```typescript
 // configs/base.ts
-import { node } from "@genesis/plugins";
+import { node } from "@ossl/genesis-plugins";
 
 export const baseTools = [
   node({ version: "20", use_nvm: true }),
@@ -227,8 +227,8 @@ export const baseTools = [
 
 ```typescript
 // genesis.config.ts
-import { defineConfig } from "@genesis/core";
-import { python } from "@genesis/plugins";
+import { defineConfig } from "@ossl/genesis-core";
+import { python } from "@ossl/genesis-plugins";
 import { baseTools } from "./configs/base";
 
 export default defineConfig({
@@ -243,8 +243,8 @@ export default defineConfig({
 
 ```typescript
 // configs/base.config.ts
-import { defineConfig } from "@genesis/core";
-import { node } from "@genesis/plugins";
+import { defineConfig } from "@ossl/genesis-core";
+import { node } from "@ossl/genesis-plugins";
 
 export default defineConfig({
   tools: [
@@ -255,8 +255,8 @@ export default defineConfig({
 
 ```typescript
 // genesis.config.ts
-import { defineConfig } from "@genesis/core";
-import { python } from "@genesis/plugins";
+import { defineConfig } from "@ossl/genesis-core";
+import { python } from "@ossl/genesis-plugins";
 import baseConfig from "./configs/base.config";
 
 export default defineConfig({
@@ -272,8 +272,8 @@ export default defineConfig({
 Genesis automatically validates your configuration:
 
 ```typescript
-import { defineConfig } from "@genesis/core";
-import { node } from "@genesis/plugins";
+import { defineConfig } from "@ossl/genesis-core";
+import { node } from "@ossl/genesis-plugins";
 
 export default defineConfig({
   tools: [
@@ -315,8 +315,8 @@ TypeScript provides type safety and better developer experience:
 
 ```typescript
 // ✅ Good: Type-safe
-import { defineConfig } from "@genesis/core";
-import { node } from "@genesis/plugins";
+import { defineConfig } from "@ossl/genesis-core";
+import { node } from "@ossl/genesis-plugins";
 
 export default defineConfig({
   tools: [node({ version: "20", use_nvm: true })],

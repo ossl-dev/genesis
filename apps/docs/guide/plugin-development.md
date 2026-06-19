@@ -24,13 +24,13 @@ import type {
   DetectResult,
   ApplyResult,
   ValidateResult,
-} from "@genesis/core";
+} from "@ossl/genesis-core";
 import {
   getPlatform,
   runCommand,
   createPackageManagerUpdateTask,
   createPackageInstallTask,
-} from "@genesis/core";
+} from "@ossl/genesis-core";
 
 // 1. Define options interface
 export interface MyToolOptions {
@@ -42,7 +42,7 @@ export function myTool(options: MyToolOptions): GenesisPluginInstance<MyToolOpti
   return {
     id: "my-tool",
     category: "tool",
-    module: "@genesis/plugins/my-tool",
+    module: "@ossl/genesis-plugins/my-tool",
     options,
   };
 }
@@ -281,7 +281,7 @@ async apply(runtime) {
 ## Testing Your Plugin
 
 ```typescript
-import { defineConfig } from "@genesis/core";
+import { defineConfig } from "@ossl/genesis-core";
 import { myTool } from "./my-plugin";
 
 export default defineConfig({

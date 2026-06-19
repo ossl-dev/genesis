@@ -12,7 +12,7 @@ Common issues and solutions when using Genesis.
 
 ```bash
 # Make sure CLI is installed
-bun add -D @genesis/cli
+bun add -D @ossl/genesis-cli
 
 # Run via package.json scripts
 bun run genesis:apply
@@ -66,10 +66,10 @@ bun add -D typescript
 
 ```typescript
 // ✅ Correct import
-import { node, python } from "@genesis/plugins";
+import { node, python } from "@ossl/genesis-plugins";
 
 // ❌ Wrong import
-import { node } from "@genesis/core";  // Wrong package!
+import { node } from "@ossl/genesis-core";  // Wrong package!
 ```
 
 ### Version mismatch
@@ -179,8 +179,8 @@ df -h
 
 ```typescript
 // Use TypeScript for type checking
-import { defineConfig } from "@genesis/core";
-import { node } from "@genesis/plugins";
+import { defineConfig } from "@ossl/genesis-core";
+import { node } from "@ossl/genesis-plugins";
 
 export default defineConfig({
   tools: [
@@ -339,7 +339,7 @@ Error: Plugin "my-plugin" not found
 **Fix:** Check plugin name and import:
 
 ```typescript
-import { node } from "@genesis/plugins";  // ✅ Correct
+import { node } from "@ossl/genesis-plugins";  // ✅ Correct
 ```
 
 ### "Version mismatch"

@@ -1,6 +1,6 @@
 # Utilities API Reference
 
-Utility functions provided by `@genesis/core`.
+Utility functions provided by `@ossl/genesis-core`.
 
 ## Platform Utilities
 
@@ -17,7 +17,7 @@ function getPlatform(): "macos" | "linux" | "windows"
 **Example:**
 
 ```typescript
-import { getPlatform } from "@genesis/core";
+import { getPlatform } from "@ossl/genesis-core";
 
 const platform = getPlatform();
 
@@ -49,7 +49,7 @@ function getPackageManager(): "brew" | "apt" | "yum" | "dnf" | null
 **Example:**
 
 ```typescript
-import { getPackageManager } from "@genesis/core";
+import { getPackageManager } from "@ossl/genesis-core";
 
 const pm = getPackageManager();
 
@@ -73,7 +73,7 @@ function getDistro(): "debian" | "ubuntu" | "fedora" | "redhat" | "centos" | "ar
 **Example:**
 
 ```typescript
-import { getDistro } from "@genesis/core";
+import { getDistro } from "@ossl/genesis-core";
 
 const distro = getDistro();
 
@@ -106,7 +106,7 @@ function runCommand(
 **Example:**
 
 ```typescript
-import { runCommand } from "@genesis/core";
+import { runCommand } from "@ossl/genesis-core";
 
 const result = await runCommand("node", ["--version"], {
   cwd: "/path/to/dir",
@@ -163,7 +163,7 @@ function fileExists(path: string): Promise<boolean>
 **Example:**
 
 ```typescript
-import { fileExists } from "@genesis/core";
+import { fileExists } from "@ossl/genesis-core";
 
 if (await fileExists("~/.nvmrc")) {
   console.log(".nvmrc file exists");
@@ -181,7 +181,7 @@ function readFile(path: string): Promise<string>
 **Example:**
 
 ```typescript
-import { readFile } from "@genesis/core";
+import { readFile } from "@ossl/genesis-core";
 
 const content = await readFile("~/.bashrc");
 console.log(content);
@@ -198,7 +198,7 @@ function writeFile(path: string, content: string): Promise<void>
 **Example:**
 
 ```typescript
-import { writeFile } from "@genesis/core";
+import { writeFile } from "@ossl/genesis-core";
 
 await writeFile("~/.myconfig", "key=value\n");
 ```
@@ -214,7 +214,7 @@ function appendFile(path: string, content: string): Promise<void>
 **Example:**
 
 ```typescript
-import { appendFile } from "@genesis/core";
+import { appendFile } from "@ossl/genesis-core";
 
 await appendFile("~/.bashrc", "\nexport PATH=$PATH:/new/path\n");
 ```
@@ -230,7 +230,7 @@ function createDirectory(path: string): Promise<void>
 **Example:**
 
 ```typescript
-import { createDirectory } from "@genesis/core";
+import { createDirectory } from "@ossl/genesis-core";
 
 await createDirectory("~/.config/my-tool");
 ```
@@ -248,7 +248,7 @@ function getEnv(key: string): string | undefined
 **Example:**
 
 ```typescript
-import { getEnv } from "@genesis/core";
+import { getEnv } from "@ossl/genesis-core";
 
 const home = getEnv("HOME");
 const path = getEnv("PATH");
@@ -265,7 +265,7 @@ function setEnv(key: string, value: string): void
 **Example:**
 
 ```typescript
-import { setEnv } from "@genesis/core";
+import { setEnv } from "@ossl/genesis-core";
 
 setEnv("MY_VAR", "my-value");
 ```
@@ -281,7 +281,7 @@ function expandPath(path: string): string
 **Example:**
 
 ```typescript
-import { expandPath } from "@genesis/core";
+import { expandPath } from "@ossl/genesis-core";
 
 const expanded = expandPath("~/my-dir");
 // Returns: "/Users/username/my-dir" (on macOS)
@@ -300,7 +300,7 @@ function getShell(): "bash" | "zsh" | "fish" | "powershell" | "cmd" | null
 **Example:**
 
 ```typescript
-import { getShell } from "@genesis/core";
+import { getShell } from "@ossl/genesis-core";
 
 const shell = getShell();
 
@@ -324,7 +324,7 @@ function getShellConfigFile(): string | null
 **Example:**
 
 ```typescript
-import { getShellConfigFile } from "@genesis/core";
+import { getShellConfigFile } from "@ossl/genesis-core";
 
 const configFile = getShellConfigFile();
 // Returns: "~/.zshrc" or "~/.bashrc" etc.
@@ -347,7 +347,7 @@ function createLogger(name: string): Logger
 **Example:**
 
 ```typescript
-import { createLogger } from "@genesis/core";
+import { createLogger } from "@ossl/genesis-core";
 
 const logger = createLogger("my-plugin");
 
@@ -381,7 +381,7 @@ function downloadFile(url: string, destination: string): Promise<void>
 **Example:**
 
 ```typescript
-import { downloadFile } from "@genesis/core";
+import { downloadFile } from "@ossl/genesis-core";
 
 await downloadFile(
   "https://example.com/installer.sh",
@@ -400,7 +400,7 @@ function downloadText(url: string): Promise<string>
 **Example:**
 
 ```typescript
-import { downloadText } from "@genesis/core";
+import { downloadText } from "@ossl/genesis-core";
 
 const script = await downloadText("https://example.com/install.sh");
 console.log(script);
@@ -419,7 +419,7 @@ function trimLines(text: string): string
 **Example:**
 
 ```typescript
-import { trimLines } from "@genesis/core";
+import { trimLines } from "@ossl/genesis-core";
 
 const text = `
   line 1
@@ -441,7 +441,7 @@ function indent(text: string, spaces: number): string
 **Example:**
 
 ```typescript
-import { indent } from "@genesis/core";
+import { indent } from "@ossl/genesis-core";
 
 const text = "line 1\nline 2";
 const indented = indent(text, 2);
@@ -461,7 +461,7 @@ function isValidVersion(version: string): boolean
 **Example:**
 
 ```typescript
-import { isValidVersion } from "@genesis/core";
+import { isValidVersion } from "@ossl/genesis-core";
 
 isValidVersion("1.0.0");     // true
 isValidVersion("20");        // true
@@ -479,7 +479,7 @@ function isValidUrl(url: string): boolean
 **Example:**
 
 ```typescript
-import { isValidUrl } from "@genesis/core";
+import { isValidUrl } from "@ossl/genesis-core";
 
 isValidUrl("https://example.com");  // true
 isValidUrl("not a url");            // false

@@ -122,7 +122,7 @@ chmod +x genesis-bootstrap
 
 ```bash
 # npm
-npm install -g @genesis/cli
+npm install -g @ossl/genesis-cli
 
 # Homebrew
 brew install genesis/tap/genesis
@@ -198,7 +198,7 @@ curl -fsSL https://genesis-docs.vercel.app/install | sh
 
 ```bash
 # Old way (required Node.js)
-npm install -g @genesis/cli
+npm install -g @ossl/genesis-cli
 genesis apply
 
 # New way (standalone)

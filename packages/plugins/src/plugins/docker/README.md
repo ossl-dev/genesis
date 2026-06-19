@@ -18,8 +18,8 @@ Add to your Genesis configuration:
 ### TypeScript Configuration
 
 ```typescript
-import { defineConfig } from "@genesis/core";
-import { docker } from "@genesis/plugins/docker";
+import { defineConfig } from "@ossl/genesis-core";
+import { docker } from "@ossl/genesis-plugins/docker";
 
 export default defineConfig({
   tools: [
@@ -120,8 +120,8 @@ tools:
 ### Basic Docker Installation
 
 ```typescript
-import { defineConfig } from "@genesis/core";
-import { docker } from "@genesis/plugins/docker";
+import { defineConfig } from "@ossl/genesis-core";
+import { docker } from "@ossl/genesis-plugins/docker";
 
 export default defineConfig({
   tools: [
@@ -133,8 +133,8 @@ export default defineConfig({
 ### Docker Desktop on macOS
 
 ```typescript
-import { defineConfig } from "@genesis/core";
-import { docker } from "@genesis/plugins/docker";
+import { defineConfig } from "@ossl/genesis-core";
+import { docker } from "@ossl/genesis-plugins/docker";
 
 export default defineConfig({
   tools: [
@@ -149,8 +149,8 @@ export default defineConfig({
 ### Server-Ready Docker on Linux
 
 ```typescript
-import { defineConfig } from "@genesis/core";
-import { docker } from "@genesis/plugins/docker";
+import { defineConfig } from "@ossl/genesis-core";
+import { docker } from "@ossl/genesis-plugins/docker";
 
 export default defineConfig({
   tools: [

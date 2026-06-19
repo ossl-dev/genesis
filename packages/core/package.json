@@ -1,5 +1,5 @@
 {
-  "name": "@genesis/core",
+  "name": "@ossl/genesis-core",
   "version": "0.1.0",
   "type": "module",
   "main": "dist/index.js",

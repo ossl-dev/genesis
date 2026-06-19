@@ -20,8 +20,8 @@ The Go plugin provides comprehensive Go language installation and management for
 ### Basic Configuration
 
 ```typescript
-import { defineConfig } from "@genesis/core";
-import { go } from "@genesis/plugins/go";
+import { defineConfig } from "@ossl/genesis-core";
+import { go } from "@ossl/genesis-plugins/go";
 
 export default defineConfig({
   languages: [
@@ -93,8 +93,8 @@ export PATH="$GOPATH/bin:$PATH"
 ### Install Go 1.21 (Recommended)
 
 ```typescript
-import { defineConfig } from "@genesis/core";
-import { go } from "@genesis/plugins/go";
+import { defineConfig } from "@ossl/genesis-core";
+import { go } from "@ossl/genesis-plugins/go";
 
 export default defineConfig({
   languages: [
@@ -108,8 +108,8 @@ export default defineConfig({
 ### Install Latest Go
 
 ```typescript
-import { defineConfig } from "@genesis/core";
-import { go } from "@genesis/plugins/go";
+import { defineConfig } from "@ossl/genesis-core";
+import { go } from "@ossl/genesis-plugins/go";
 
 export default defineConfig({
   languages: [
@@ -123,8 +123,8 @@ export default defineConfig({
 ### Multiple Go Versions
 
 ```typescript
-import { defineConfig } from "@genesis/core";
-import { go } from "@genesis/plugins/go";
+import { defineConfig } from "@ossl/genesis-core";
+import { go } from "@ossl/genesis-plugins/go";
 
 export default defineConfig({
   languages: [

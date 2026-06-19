@@ -20,8 +20,8 @@ The Java plugin provides comprehensive Java Development Kit installation and man
 ### Basic Configuration
 
 ```typescript
-import { defineConfig } from "@genesis/core";
-import { java } from "@genesis/plugins/java";
+import { defineConfig } from "@ossl/genesis-core";
+import { java } from "@ossl/genesis-plugins/java";
 
 export default defineConfig({
   languages: [
@@ -92,8 +92,8 @@ export PATH="$JAVA_HOME/bin:$PATH"
 ### Install Java 17 (Recommended)
 
 ```typescript
-import { defineConfig } from "@genesis/core";
-import { java } from "@genesis/plugins/java";
+import { defineConfig } from "@ossl/genesis-core";
+import { java } from "@ossl/genesis-plugins/java";
 
 export default defineConfig({
   languages: [
@@ -107,8 +107,8 @@ export default defineConfig({
 ### Install Java 11 for Legacy Projects
 
 ```typescript
-import { defineConfig } from "@genesis/core";
-import { java } from "@genesis/plugins/java";
+import { defineConfig } from "@ossl/genesis-core";
+import { java } from "@ossl/genesis-plugins/java";
 
 export default defineConfig({
   languages: [
@@ -122,8 +122,8 @@ export default defineConfig({
 ### Install Oracle JDK
 
 ```typescript
-import { defineConfig } from "@genesis/core";
-import { java } from "@genesis/plugins/java";
+import { defineConfig } from "@ossl/genesis-core";
+import { java } from "@ossl/genesis-plugins/java";
 
 export default defineConfig({
   languages: [
@@ -138,8 +138,8 @@ export default defineConfig({
 ### Multiple Java Versions
 
 ```typescript
-import { defineConfig } from "@genesis/core";
-import { java } from "@genesis/plugins/java";
+import { defineConfig } from "@ossl/genesis-core";
+import { java } from "@ossl/genesis-plugins/java";
 
 export default defineConfig({
   languages: [

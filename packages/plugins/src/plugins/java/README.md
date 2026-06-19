@@ -18,8 +18,8 @@ Add to your Genesis configuration:
 ### TypeScript Configuration
 
 ```typescript
-import { defineConfig } from "@genesis/core";
-import { java } from "@genesis/plugins/java";
+import { defineConfig } from "@ossl/genesis-core";
+import { java } from "@ossl/genesis-plugins/java";
 
 export default defineConfig({
   languages: [
@@ -89,8 +89,8 @@ export PATH="$JAVA_HOME/bin:$PATH"
 ### Install Java 17 (OpenJDK)
 
 ```typescript
-import { defineConfig } from "@genesis/core";
-import { java } from "@genesis/plugins/java";
+import { defineConfig } from "@ossl/genesis-core";
+import { java } from "@ossl/genesis-plugins/java";
 
 export default defineConfig({
   languages: [
@@ -104,8 +104,8 @@ export default defineConfig({
 ### Install Java 11 (Oracle JDK)
 
 ```typescript
-import { defineConfig } from "@genesis/core";
-import { java } from "@genesis/plugins/java";
+import { defineConfig } from "@ossl/genesis-core";
+import { java } from "@ossl/genesis-plugins/java";
 
 export default defineConfig({
   languages: [
@@ -120,8 +120,8 @@ export default defineConfig({
 ### Multiple Java Versions
 
 ```typescript
-import { defineConfig } from "@genesis/core";
-import { java } from "@genesis/plugins/java";
+import { defineConfig } from "@ossl/genesis-core";
+import { java } from "@ossl/genesis-plugins/java";
 
 export default defineConfig({
   languages: [

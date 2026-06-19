@@ -6,7 +6,7 @@ import {
   getPlatform,
   createPackageManagerUpdateTask,
   createPackageInstallTask,
-} from "@genesis/core";
+} from "@ossl/genesis-core";
 import os from "node:os";
 import path from "node:path";
 import fs from "node:fs";
@@ -22,7 +22,7 @@ export function git(
   return {
     id: "git",
     category: "tool",
-    module: "@genesis/plugins/git",
+    module: "@ossl/genesis-plugins/git",
     options: {
       version: options.version ?? "latest",
       install_method: options.install_method ?? "package",

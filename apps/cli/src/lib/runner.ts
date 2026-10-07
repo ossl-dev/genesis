@@ -2,7 +2,8 @@ import {
   collectPluginInstances,
   loadPlugins,
   buildPluginGraph,
-  runApply as coreRunApply,
+  applyEnvironment,
+  createEnvironmentPlan,
   runDiff as coreRunDiff,
   runValidate as coreRunValidate,
   runDetect as coreRunDetect,
@@ -17,10 +18,12 @@ import {
 export interface RunnerContext {
   cwd: string;
   configPath?: string;
+  dryRun?: boolean;
+  json?: boolean;
 }
 
-function createLogger(): Logger {
-  const level = process.env.GENESIS_DEBUG ? "debug" : "info";
+function createLogger(quiet = false): Logger {
+  const level = quiet ? "error" : process.env.GENESIS_DEBUG ? "debug" : "info";
   return new Logger({ level, prefix: "genesis" });
 }
 
@@ -53,21 +56,34 @@ function printTable(
 }
 
 async function prepare(context: RunnerContext) {
-  const logger = createLogger();
+  const logger = createLogger(context.json);
   logger.debug(`Loading config from ${context.cwd}`);
   const config = await loadConfig(context.cwd, context.configPath);
   const instances = collectPluginInstances(config);
   const nodes = await loadPlugins(instances);
   const graph = buildPluginGraph(nodes);
-  return { logger, graph, env: { ...process.env, ...config.env } };
+  return { logger, graph, config, env: { ...process.env, ...config.env } };
 }
 
 export async function runApply(context: RunnerContext): Promise<void> {
-  const { logger, graph, env } = await prepare(context);
+  const { logger, graph, config, env } = await prepare(context);
+  if (context.dryRun) {
+    const plan = createEnvironmentPlan(config, graph);
+    if (context.json) console.log(JSON.stringify(plan, null, 2));
+    else {
+      console.log("Dry run: planned actions (no provisioning commands executed)");
+      for (const action of plan.actions) {
+        if (action.type === "plugin") console.log(`Plugin: ${action.id} (${action.module})`);
+        else if (action.type === "repository") console.log(`Repository: ${action.url} -> ${action.folder}${action.branch ? ` (${action.branch})` : ""}`);
+        else console.log(`Script (${action.when}): ${action.name}: ${action.command}`);
+      }
+    }
+    return;
+  }
   const taskRegistry = new TaskRegistry(logger);
 
   logger.info(`Applying ${graph.length} plugins`);
-  const summaries: ApplySummary[] = await coreRunApply(graph, {
+  const summaries: ApplySummary[] = await applyEnvironment(config, graph, {
     cwd: context.cwd,
     env,
     logger,

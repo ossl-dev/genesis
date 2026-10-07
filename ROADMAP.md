@@ -18,7 +18,7 @@ Genesis has zero tests. That's the first thing to fix.
 - [x] Add unit tests for task registry — dedup, topological sort, priority ordering
 - [x] Add unit tests for plugin executor — 3-phase lifecycle, error propagation
 - [x] Add unit tests for each plugin's `detect`, `apply`, `validate` methods (mock the shell)
-- [ ] Add integration tests — apply a real config in a temp dir, verify side effects
+- [x] Add integration tests — execute real scripts and local Git clones in temp directories; cover failures and preservation of existing files
 - [x] Add platform-specific test runs (macOS, Linux, Windows) in CI
 
 ### CI / infra
@@ -73,8 +73,8 @@ Make existing stuff faster, safer, more portable.
 
 - [ ] Make `ParallelExecutionEngine` configurable — max concurrency, resource thresholds, timeout per task
 - [ ] Add task progress reporting — show what's running, what's done, what failed
-- [ ] Add dry-run mode that shows what would happen without executing anything
-- [ ] Export execution plan as JSON for CI tooling to consume
+- [x] Add dry-run mode that shows what would happen without executing anything
+- [x] Export execution plan as JSON for CI tooling to consume
 
 ### Config
 

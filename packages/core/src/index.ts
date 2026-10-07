@@ -13,3 +13,4 @@ export * from "./execution/system-tasks.js";
 export * from "./execution/parallel-execution.js";
 export * from "./cache/environment-cache.js";
 export * from "./fs/paths.js";
+export * from "./execution/environment.js";

@@ -1,6 +1,15 @@
 # Genesis Roadmap
 
-Things to build, fix, and improve. Checked boxes mean shipped.
+Things to build, fix, and improve. Checked boxes mean implemented in this repository, not a published release. Installer tests mostly mock commands; OS CI coverage does not certify fresh-machine provisioning.
+
+## Next priorities
+
+1. Make host installation recoverable: staged Go/Java extraction, correct Java/Git release resolution, and version pinning in Docker installers.
+2. Resolve Homebrew bootstrap ordering and propagate every update/upgrade failure.
+3. Add real installer checks in disposable environments, then implement Linux package-manager selection and Windows installers.
+4. Finish local cache persistence/restore before cloud sync or standalone distribution.
+
+Recent work adds trustworthy config/failure handling, validated lifecycle hooks, a tested parallel core API, and real repository/script apply with dry-run plans. CLI plugin execution remains sequential.
 
 **Want to contribute?** Pick an unchecked box, open an issue saying you're on it, send a PR. Keep one item per PR. If something's unclear, open an issue and ask — don't guess.
 
@@ -12,7 +21,7 @@ Stuff that's built but not fully finished, tested, or released.
 
 ### Tests
 
-Genesis has zero tests. That's the first thing to fix.
+Unit tests cover configs, plugins, task scheduling, and CLI behavior. Local integration tests exercise scripts and Git repositories in temporary directories.
 
 - [x] Add unit tests for config loader — YAML parsing, TS config loading, validation edge cases
 - [x] Add unit tests for task registry — dedup, topological sort, priority ordering
@@ -24,25 +33,25 @@ Genesis has zero tests. That's the first thing to fix.
 ### CI / infra
 
 - [x] Wire up GitHub Actions — lint, build, test on push/PR
-- [x] Add test matrix for Node 18/20/22 and Bun 1.x
+- [x] Add Bun test runs across three OS; Node versions are not separately pinned in CI
 - [x] Add CI badge to README
 - [x] Add per-platform CI jobs (macOS, Ubuntu, Windows runners)
-- [x] Add `turbo run lint` to CI — eslint is configured but nothing enforces it
-- [x] Add dependency vulnerability check (e.g. `npm audit` or `bun audit`)
+- [x] Add `turbo run lint` to CI — currently TypeScript checks, not ESLint rules
+- [x] Add advisory `bun audit` job (failures do not block CI)
 
 ### Finish stubs
 
 Code exists but doesn't actually do the thing yet. Finish it.
 
 - [x] **ParallelExecutionEngine** — preserve executable plugin nodes, schedule dependency layers with bounded workers, clamp concurrency to available CPUs, serialize overlapping configured paths/ports, and propagate failures. Resource checks are conservative heuristics; CLI apply remains sequential.
-- [x] **EnvironmentCacheManager** — full interface exists, but `restore`, `decompress`, `sync`, `snapshot` methods only log. Implement actual I/O so `genesis` can cache and restore dev environments.
-- [x] **genesis login** — CLI command exists, emits placeholder output. Implement OAuth flow and token storage.
-- [x] **genesis list --cloud** — exists, prints hardcoded example output. Wire to real backend.
-- [x] **genesis apply <env-id>** — exists, prints hardcoded output. Wire to real cloud environment apply.
+- [ ] **EnvironmentCacheManager** — metadata/compression prototype exists; filesystem/network restore and durable reload are unfinished, and "remote" sync only writes local JSON. Implement persistence, safe artifact restore, and round-trip tests.
+- [ ] **genesis login** — token metadata can be saved locally, but backend verification and OAuth are missing.
+- [ ] **genesis list --cloud** — reports an unavailable backend. Wire to a real service without contaminating JSON output.
+- [ ] **genesis apply <env-id>** — fails explicitly. Implement authenticated environment resolution and apply.
 
 ### Docs accuracy
 
-The docs site lists 12+ plugins in the sidebar that don't exist yet. Fix the mismatch.
+Keep shipped behavior distinct from experiments and proposals; remove unsupported commands and fabricated API examples.
 
 - [x] Audit every doc page against real implemented code — remove or mark aspirational pages clearly
 - [x] Add a "status" badge per plugin doc page (implemented / planned / in progress)
@@ -64,10 +73,11 @@ Make existing stuff faster, safer, more portable.
 
 ### Platform support
 
-- [ ] **Windows** — every plugin currently falls back to printing manual install guides. Auto-install for at least Homebrew (via winget), Node (via nvm-windows or fnm), Python, and Git.
-- [ ] **Linux** — test on Debian, Fedora, Arch. Package manager detection works (apt/yum/dnf/pacman) but only apt is actually used in plugin code.
-- [ ] **aarch64 / ARM** — Docker plugin downloads x86 binaries on ARM. Go download URL doesn't auto-detect arch. Fix arch detection everywhere.
-- [ ] Add `genesis doctor` to actually check that required system tools exist and report what's missing (currently just prints config example)
+- [ ] **Windows** — every plugin currently falls back to printing manual install guides. Implement native installers for Node, Python, and Git through supported Windows package/version managers.
+- [ ] **Linux** — test on Debian, Fedora, Arch. Shared system tasks currently hardcode APT; implement distribution/package-manager selection and package mappings.
+- [ ] **aarch64 / ARM** — Go and Docker Desktop map ARM64 correctly. Add real ARM installer checks and reject unsupported architectures rather than falling back to x64.
+- [x] `genesis doctor` detects and validates configured plugins with nonzero failure exits
+- [ ] Add config-free host diagnostics and prerequisite inventory to doctor
 
 ### Execution
 
@@ -192,16 +202,16 @@ Not triaged into phases. Fix anytime.
 - [ ] Enforce version selection in Git source/binary and Docker installation paths.
 - [ ] Propagate Homebrew update/upgrade failures and bootstrap brew before shared system tasks.
 
-- [ ] **Homebrew on Apple Silicon**: install path is `/opt/homebrew`, not `/usr/local`. Plugin assumes the latter for cask installs.
+- [x] **Homebrew on Apple Silicon**: choose `/opt/homebrew`, use `/usr/local` on Intel, and expose the install bin directory to later commands.
 - [x] **Docker Desktop on macOS**: retain the downloaded DMG and report manual completion instead of claiming a successful install.
-- [ ] **Go arch detection**: download URL hardcodes `amd64`. On Apple Silicon it downloads the wrong binary.
+- [x] **Go arch detection**: map ARM64 to arm64 and x64 to amd64 in archive URLs.
 - [ ] **Node standalone install**: `use_nvm: false` prints "standalone installation not yet supported" and skips. Should at least try fnm or a direct download.
 - [x] **Parallel execution with one core**: `ParallelExecutionEngine` doesn't check available CPUs — could oversubscribe a low-resource machine.
 - [x] **Config validation error messages**: Zod errors are printed raw without context. "Expected number, got string" on a deeply nested field is hard to debug — need path + friendly message.
-- [ ] **Plugin loading silently fails**: if a plugin module throws during import, it's caught and logged as debug. Should surface in `genesis doctor` at minimum.
+- [x] **Plugin loading errors**: report the plugin ID and module when import fails; load-time option errors also include the ID.
 - [ ] **No config file caching**: every `genesis apply` re-parses and re-validates the config. Add hash-based skip when nothing changed.
-- [ ] **`genesis diff` output**: currently prints the full config on both sides. Should show only what changed.
-- [ ] **Windows path separators**: code uses `path.join` in some places but string concatenation in others (e.g. `download.ts`). Will break on Windows.
+- [ ] **`genesis diff` output**: currently reports plugin detection status. Add desired/current version and package changes.
+- [x] **Windows test paths**: real integration tests use native paths; mocked config fixtures use portable virtual paths. The old `download.ts` utility was removed.
 
 ---
 

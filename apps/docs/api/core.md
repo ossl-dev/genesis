@@ -1,344 +1,52 @@
-# Core API Reference
+# Core API
 
-Complete API reference for `@ossl/genesis-core`.
+Exports from `@ossl/genesis-core`.
 
 ## Configuration
 
-### `defineConfig()`
-
-Define a Genesis configuration.
-
 ```typescript
-function defineConfig(config: GenesisConfig): GenesisConfig
+loadConfig(cwd: string, configPath?: string, env?: NodeJS.ProcessEnv): Promise<GenesisConfig>
+validateConfig(value: unknown): GenesisConfig
+defineConfig(config: GenesisConfig): GenesisConfig
 ```
 
-**Parameters:**
-- `config`: Configuration object
+`loadConfig` discovers TS then YAML, normalizes YAML entries, expands environment references, and reports errors with file/field context. `validateConfig` validates the normalized structure and rejects duplicate IDs. `defineConfig` is a typed identity helper.
 
-**Returns:** The same configuration object (for type safety)
+`GenesisConfig` has optional `tools`, `sdks`, `languages`, `repositories`, `scripts`, and `env` sections. Repository specs have `url`, `folder`, and optional `branch`; the loader also accepts `path` as an input alias. Script specs have `name`, `command`, optional `description`, and optional `when: before | after`.
 
-**Example:**
-
-```typescript
-import { defineConfig } from "@ossl/genesis-core";
-
-export default defineConfig({
-  tools: [],
-  languages: [],
-  sdks: [],
-});
-```
-
-### `GenesisConfig`
-
-Configuration interface.
+## Plugins
 
 ```typescript
-interface GenesisConfig {
-  tools?: GenesisPluginInstance[];
-  languages?: GenesisPluginInstance[];
-  sdks?: GenesisPluginInstance[];
-}
+collectPluginInstances(config: GenesisConfig): GenesisPluginInstance[]
+loadPlugin(instance: GenesisPluginInstance): Promise<PluginExecutionNode>
+loadPlugins(instances: GenesisPluginInstance[]): Promise<PluginExecutionNode[]>
+buildPluginGraph(nodes: PluginExecutionNode[]): PluginExecutionNode[]
 ```
 
-## Plugin System
-
-### `GenesisPlugin<TOptions>`
-
-Plugin interface.
+The loader imports `createPlugin`, checks identity/category, and runs optional `parseOptions`. Graph building rejects duplicates, missing dependencies, and cycles. See [Plugin API](/api/plugin).
 
 ```typescript
-interface GenesisPlugin<TOptions = any> {
-  id: string;
-  category: "tool" | "sdk" | "language";
-  dependsOn?: string[];
-  
-  detect?(runtime: PluginRuntime<TOptions>): Promise<DetectResult>;
-  registerTasks?(runtime: PluginRuntime<TOptions>): Promise<void>;
-  apply?(runtime: PluginRuntime<TOptions>): Promise<ApplyResult>;
-  validate?(runtime: PluginRuntime<TOptions>): Promise<ValidateResult>;
-}
+runDetect(nodes, context): Promise<DetectSummary[]>
+runDiff(nodes, context): Promise<DetectSummary[]>
+runApply(nodes, context): Promise<ApplySummary[]>
+runValidate(nodes, context): Promise<ValidateSummary[]>
 ```
 
-### `GenesisPluginInstance<TOptions>`
+`runDiff` currently delegates to detection. `runApply` sorts dependencies, runs deduplicated prerequisites, then pre/apply/post hooks. Failed prerequisites reject. Returned plugin failures block dependents; thrown errors stop the run. These functions do not themselves set a process exit status.
 
-Plugin instance (returned by plugin factory functions).
+## Environment execution
 
 ```typescript
-interface GenesisPluginInstance<TOptions = any> {
-  id: string;
-  category: "tool" | "sdk" | "language";
-  module: string;
-  options: TOptions;
-}
+applyEnvironment(config, nodes, context): Promise<ApplySummary[]>
+createEnvironmentPlan(config, nodes): { environment: string[]; actions: EnvironmentAction[] }
 ```
 
-### `PluginRuntime<TOptions>`
+`applyEnvironment` merges config environment values into a copy of context, runs before scripts, applies plugins, checks/clones repositories, then runs after scripts. Plugin failures return summaries and prevent repository/after-script work. Script/repository errors reject.
 
-Runtime context passed to plugin methods.
+The plan contains ordered script/plugin/repository actions and environment variable names. It does not call lifecycle methods or inspect installed state, and excludes environment values.
 
-```typescript
-interface PluginRuntime<TOptions> {
-  instance: GenesisPluginInstance<TOptions>;
-  options: TOptions;
-  context: GenesisPluginContext;
-}
-```
+## Tasks and utilities
 
-### `GenesisPluginContext`
+See [Task Registry](/api/task-registry), [Parallel Execution](/api/execution), and [Utilities](/api/utilities).
 
-Plugin execution context.
-
-```typescript
-interface GenesisPluginContext {
-  cwd: string;
-  env: NodeJS.ProcessEnv;
-  logger: Logger;
-  taskRegistry: TaskRegistry;
-}
-```
-
-### Result Types
-
-```typescript
-interface DetectResult {
-  ok: boolean;
-  details: string;
-}
-
-interface ApplyResult {
-  ok: boolean;
-  details: string;
-}
-
-interface ValidateResult {
-  ok: boolean;
-  details: string;
-}
-```
-
-## Task Registry
-
-See [Task Registry API](/api/task-registry) for complete documentation.
-
-### `TaskRegistry`
-
-Task registry class.
-
-```typescript
-class TaskRegistry {
-  register(task: Task): void;
-  executeAll(): Promise<Map<TaskId, TaskResult>>;
-}
-```
-
-### `Task`
-
-Task interface.
-
-```typescript
-interface Task {
-  id: TaskId;
-  priority: number;
-  dependsOn?: TaskId[];
-  execute: () => Promise<void>;
-}
-```
-
-### Helper Functions
-
-```typescript
-function createPackageManagerUpdateTask(
-  cwd: string,
-  env: NodeJS.ProcessEnv
-): Task;
-
-function createPackageInstallTask(
-  packageName: string,
-  cwd: string,
-  env: NodeJS.ProcessEnv
-): Task;
-```
-
-## Platform Utilities
-
-### `getPlatform()`
-
-Get current platform.
-
-```typescript
-function getPlatform(): "macos" | "linux" | "windows"
-```
-
-**Example:**
-
-```typescript
-import { getPlatform } from "@ossl/genesis-core";
-
-const platform = getPlatform();
-if (platform === "macos") {
-  // macOS-specific logic
-}
-```
-
-### `getPackageManager()`
-
-Get package manager for current platform.
-
-```typescript
-function getPackageManager(): "brew" | "apt" | "yum" | "dnf" | null
-```
-
-## Command Execution
-
-### `runCommand()`
-
-Execute a shell command.
-
-```typescript
-function runCommand(
-  command: string,
-  args: string[],
-  options: CommandOptions
-): Promise<CommandResult>
-```
-
-**Parameters:**
-- `command`: Command to execute
-- `args`: Command arguments
-- `options`: Execution options
-
-**Returns:** Command result
-
-**Example:**
-
-```typescript
-import { runCommand } from "@ossl/genesis-core";
-
-const result = await runCommand("node", ["--version"], {
-  cwd: "/path/to/dir",
-  env: process.env,
-});
-
-if (result.code === 0) {
-  console.log(result.stdout);
-}
-```
-
-### `CommandOptions`
-
-```typescript
-interface CommandOptions {
-  cwd: string;
-  env: NodeJS.ProcessEnv;
-  stdin?: string;
-}
-```
-
-### `CommandResult`
-
-```typescript
-interface CommandResult {
-  code: number;
-  stdout: string;
-  stderr: string;
-}
-```
-
-## Logging
-
-### `Logger`
-
-Logger interface.
-
-```typescript
-interface Logger {
-  debug(message: string): void;
-  info(message: string): void;
-  warn(message: string): void;
-  error(message: string): void;
-}
-```
-
-**Example:**
-
-```typescript
-logger.debug("Checking installation...");
-logger.info("Installing my-tool...");
-logger.warn("Version mismatch detected");
-logger.error("Installation failed");
-```
-
-## File System
-
-### `fileExists()`
-
-Check if file exists.
-
-```typescript
-function fileExists(path: string): Promise<boolean>
-```
-
-### `readFile()`
-
-Read file contents.
-
-```typescript
-function readFile(path: string): Promise<string>
-```
-
-### `writeFile()`
-
-Write file contents.
-
-```typescript
-function writeFile(path: string, content: string): Promise<void>
-```
-
-## Environment
-
-### `getEnv()`
-
-Get environment variable.
-
-```typescript
-function getEnv(key: string): string | undefined
-```
-
-### `setEnv()`
-
-Set environment variable.
-
-```typescript
-function setEnv(key: string, value: string): void
-```
-
-## Type Exports
-
-All types are exported from `@ossl/genesis-core`:
-
-```typescript
-export type {
-  GenesisConfig,
-  GenesisPlugin,
-  GenesisPluginInstance,
-  GenesisPluginContext,
-  PluginRuntime,
-  DetectResult,
-  ApplyResult,
-  ValidateResult,
-  Task,
-  TaskId,
-  TaskResult,
-  Logger,
-  CommandOptions,
-  CommandResult,
-};
-```
-
-## What's Next?
-
-- [Task Registry API](/api/task-registry) - Task registry details
-- [Plugin API](/api/plugin) - Plugin development API
-- [Utilities API](/api/utilities) - Utility functions
-
+`EnvironmentCacheManager` and its snapshot/artifact types are exported but unfinished. Compression stores metadata in memory, optional "remote" sync writes local JSON, restore does not restore files/network, and encryption is not implemented. The CLI has no usable restore workflow. These APIs are not backup guarantees.

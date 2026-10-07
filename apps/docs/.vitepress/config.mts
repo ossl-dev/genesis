@@ -11,7 +11,6 @@ export default defineConfig({
 
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
-    logo: "/logo.svg",
 
     nav: [
       { text: "Home", link: "/" },
@@ -23,7 +22,7 @@ export default defineConfig({
         items: [
           {
             text: "Changelog",
-            link: "https://github.com/Open-Vanguard/genesis/releases",
+            link: "https://github.com/ossl-dev/genesis/releases",
           },
           { text: "Contributing", link: "/guide/contributing" },
         ],
@@ -95,15 +94,6 @@ export default defineConfig({
               { text: "Git", link: "git" },
               { text: "Docker", link: "docker" },
               { text: "Homebrew", link: "homebrew" },
-              { text: "Bun" },
-              { text: "Deno" },
-              { text: "pnpm" },
-              { text: "Yarn" },
-              { text: "Android SDK" },
-              { text: "Expo" },
-              { text: "PostgreSQL" },
-              { text: "Redis" },
-              { text: "MongoDB" },
             ],
           },
           {
@@ -113,20 +103,6 @@ export default defineConfig({
               { text: "Python", link: "python" },
               { text: "Java", link: "java" },
               { text: "Go", link: "go" },
-              { text: "Rust" },
-              { text: "C++" },
-              { text: "Swift" },
-            ],
-          },
-          {
-            text: "SDKs",
-            collapsed: false,
-            items: [
-              { text: "Docker Compose" },
-              { text: "Nginx" },
-              { text: "FFmpeg" },
-              { text: "Grafana" },
-              { text: "Prometheus" },
             ],
           },
           {
@@ -159,7 +135,7 @@ export default defineConfig({
     },
 
     socialLinks: [
-      { icon: "github", link: "https://github.com/Open-Vanguard/genesis" },
+      { icon: "github", link: "https://github.com/ossl-dev/genesis" },
     ],
 
     footer: {
@@ -169,7 +145,7 @@ export default defineConfig({
 
     editLink: {
       pattern:
-        "https://github.com/Open-Vanguard/genesis/edit/main/apps/docs/:path",
+        "https://github.com/ossl-dev/genesis/edit/main/apps/docs/:path",
       text: "Edit this page on GitHub",
     },
 
@@ -183,5 +159,4 @@ export default defineConfig({
     },
   },
 
-  head: [["link", { rel: "icon", type: "image/svg+xml", href: "/logo.svg" }]],
 });

@@ -1,322 +1,34 @@
 # Architecture
 
-Learn about Genesis's internal architecture and design decisions.
+Genesis turns a project config into host provisioning operations. Its aim is repeatable team onboarding; it does not currently isolate projects or make host installation transactional.
 
-## Overview
+## Packages
 
-Genesis is built with a modular, plugin-based architecture that emphasizes:
-- **Declarative configuration**
-- **Cross-platform support**
-- **Task deduplication**
-- **Type safety**
+- `packages/core`: config parsing/validation, plugin loading and lifecycle, system tasks, environment apply, parallel execution, shell/filesystem utilities.
+- `packages/plugins`: seven built-in plugin factories and implementations.
+- `apps/cli`: command parsing, config preparation, output, and process exit handling.
+- `apps/docs`: VitePress documentation.
 
-## Core Components
+## Local apply
 
-### 1. Configuration System
+1. Load the selected config; normalize YAML entries, expand environment references, and validate the structure.
+2. Import plugins, validate/default options, and sort dependencies. Invalid graphs fail before provisioning.
+3. Merge configured environment variables into a copy of the inherited environment.
+4. Run before scripts.
+5. Register and execute deduplicated system prerequisites. Missing dependencies or cycles fail before task execution; failed prerequisites stop plugin apply.
+6. Run plugin pre/apply/post hooks in dependency order. Returned failures block dependents; thrown failures stop execution.
+7. After successful plugins, clone/check repositories, then run after scripts.
 
-Parses and validates user configuration:
+The CLI reports failures with nonzero exits. Existing repositories are checked for root, origin, and requested branch; they are not pulled, reset, or switched. Scripts always run and must be safe to repeat.
 
-```
-genesis.config.ts → Parser → Validator → Config Object
-```
+## Execution
 
-**Features:**
-- TypeScript and YAML support
-- Schema validation
-- Type safety
+The CLI executes plugins sequentially. The [parallel core API](/api/execution) retains real plugin nodes, groups dependency layers, and uses bounded workers. It serializes overlapping configured paths/ports but cannot infer all package-manager or shell-profile conflicts.
 
-### 2. Plugin System
+## Inspection and unfinished systems
 
-Manages plugin lifecycle and execution:
+`diff` detects plugins; it is not a full desired/current-state diff. `doctor` detects and validates configured plugins, rather than performing a config-free host inventory.
 
-```
-Plugin Registration → Detection → Task Registration → Execution → Validation
-```
+`EnvironmentCacheManager` remains a prototype: restore methods do not restore files or network state, and its local persistence is not a remote sync service. CLI apply does not populate a usable cache. Cloud commands have no backend integration. The roadmap records these as unfinished.
 
-**Features:**
-- Plugin discovery and loading
-- Dependency resolution
-- Lifecycle management
-
-### 3. Task Registry
-
-Deduplicates and executes system-level tasks:
-
-```
-Task Registration → Deduplication → Priority Sorting → Execution
-```
-
-**Features:**
-- Task deduplication by ID
-- Priority-based execution
-- Dependency resolution
-
-### 4. Platform Abstraction
-
-Provides cross-platform utilities:
-
-```
-Platform Detection → Package Manager Selection → Command Execution
-```
-
-**Features:**
-- Automatic platform detection
-- Package manager abstraction
-- Shell command execution
-
-## Three-Phase Execution Model
-
-Genesis uses a three-phase execution model for optimal performance:
-
-### Phase 1: Task Registration
-
-```typescript
-for (const plugin of plugins) {
-  if (plugin.registerTasks) {
-    await plugin.registerTasks(runtime);
-  }
-}
-```
-
-**Purpose:** Collect all system-level prerequisites
-
-### Phase 2: Task Execution
-
-```typescript
-const taskResults = await taskRegistry.executeAll();
-```
-
-**Purpose:** Execute system tasks with deduplication
-
-### Phase 3: Plugin Installation
-
-```typescript
-for (const plugin of plugins) {
-  if (plugin.apply) {
-    await plugin.apply(runtime);
-  }
-}
-```
-
-**Purpose:** Perform plugin-specific installations
-
-## Data Flow
-
-```
-User Config
-    ↓
-Config Parser
-    ↓
-Plugin Loader
-    ↓
-Plugin Executor
-    ├─→ Phase 1: Register Tasks
-    ├─→ Phase 2: Execute Tasks (deduplicated)
-    └─→ Phase 3: Install Plugins
-    ↓
-Validation
-    ↓
-Results
-```
-
-## Task Registry Architecture
-
-### Task Identification
-
-Tasks are identified by unique IDs:
-
-```
-platform:category:operation[:parameter]
-```
-
-**Examples:**
-- `linux:package-manager:apt-update`
-- `macos:package:install:curl`
-
-### Deduplication Logic
-
-```typescript
-class TaskRegistry {
-  private tasks = new Map<TaskId, Task>();
-  
-  register(task: Task): void {
-    if (!this.tasks.has(task.id)) {
-      this.tasks.set(task.id, task);
-    }
-    // Duplicate tasks are ignored
-  }
-}
-```
-
-### Execution Order
-
-1. **Priority sorting** - Higher priority tasks first
-2. **Dependency resolution** - Topological sort
-3. **Sequential execution** - One task at a time
-
-## Plugin Architecture
-
-### Plugin Interface
-
-```typescript
-interface GenesisPlugin<TOptions> {
-  id: string;
-  category: "tool" | "sdk" | "language";
-  dependsOn?: string[];
-  
-  detect?(runtime: PluginRuntime<TOptions>): Promise<DetectResult>;
-  registerTasks?(runtime: PluginRuntime<TOptions>): Promise<void>;
-  apply?(runtime: PluginRuntime<TOptions>): Promise<ApplyResult>;
-  validate?(runtime: PluginRuntime<TOptions>): Promise<ValidateResult>;
-}
-```
-
-### Plugin Runtime
-
-```typescript
-interface PluginRuntime<TOptions> {
-  instance: GenesisPluginInstance<TOptions>;
-  options: TOptions;
-  context: GenesisPluginContext;
-}
-
-interface GenesisPluginContext {
-  cwd: string;
-  env: NodeJS.ProcessEnv;
-  logger: Logger;
-  taskRegistry: TaskRegistry;
-}
-```
-
-## Design Decisions
-
-### Why Three Phases?
-
-**Problem:** Plugins need system dependencies during installation.
-
-**Solution:** Separate task registration from execution.
-
-**Benefits:**
-- Dependencies available when needed
-- Deduplication across all plugins
-- Clean separation of concerns
-
-### Why Task Registry?
-
-**Problem:** Multiple plugins run the same system commands.
-
-**Solution:** Central registry with deduplication.
-
-**Benefits:**
-- 50% faster execution
-- Guaranteed dependency availability
-- Scalable to any number of plugins
-
-### Why TypeScript-First?
-
-**Problem:** Configuration errors are hard to debug.
-
-**Solution:** TypeScript with full type safety.
-
-**Benefits:**
-- Catch errors at compile time
-- IntelliSense and autocomplete
-- Better developer experience
-
-## Performance Optimizations
-
-### 1. Task Deduplication
-
-Eliminates redundant operations:
-
-```
-Without: apt-update × 5 plugins = 5 executions
-With: apt-update × 5 plugins = 1 execution
-```
-
-### 2. Lazy Loading
-
-Plugins loaded only when needed:
-
-```typescript
-// Only load plugins that are configured
-const plugins = await loadPlugins(config);
-```
-
-### 3. Parallel Detection
-
-Detection runs in parallel:
-
-```typescript
-await Promise.all(
-  plugins.map(plugin => plugin.detect(runtime))
-);
-```
-
-## Error Handling
-
-### Graceful Degradation
-
-```typescript
-try {
-  await plugin.apply(runtime);
-} catch (error) {
-  logger.error(`Failed to install ${plugin.id}: ${error.message}`);
-  // Continue with other plugins
-}
-```
-
-### Detailed Error Messages
-
-```typescript
-throw new Error(
-  `Failed to install Node.js: NVM installation failed. ` +
-  `Please check your internet connection and try again.`
-);
-```
-
-## Extensibility
-
-### Custom Plugins
-
-Users can create custom plugins:
-
-```typescript
-export function myTool(options) {
-  return {
-    id: "my-tool",
-    category: "tool",
-    module: "@my-org/genesis-plugin-my-tool",
-    options,
-  };
-}
-```
-
-### Plugin Hooks
-
-Plugins can hook into the lifecycle:
-
-```typescript
-{
-  detect: async (runtime) => { /* ... */ },
-  registerTasks: async (runtime) => { /* ... */ },
-  apply: async (runtime) => { /* ... */ },
-  validate: async (runtime) => { /* ... */ },
-}
-```
-
-## Future Architecture
-
-### Planned Improvements
-
-- **Parallel task execution** - Execute independent tasks in parallel
-- **Caching** - Cache detection results
-- **Rollback** - Undo failed installations
-- **Dry run** - Preview changes without executing
-
-## What's Next?
-
-- [Task Registry](/guide/task-registry) - Deep dive into task deduplication
-- [Plugin Development](/guide/plugin-development) - Create custom plugins
-- [API Reference](/api/core) - Complete API documentation
-
+See [Core API](/api/core), [Configuration](/guide/configuration), and [Lifecycle](/plugins/lifecycle).

@@ -440,21 +440,6 @@ describe('TaskRegistry', () => {
   // Edge cases
   // ---------------------------------------------------------------------------
 
-  it('dependency on task that is not registered — the sorted list includes only registered tasks', async () => {
-    // Register A that depends on non-existent B. B is not in the registry.
-    // topologicalSort visits B, but this.tasks.get('B') returns undefined,
-    // so the visit function returns early without adding B.
-    // The resulting sorted list contains A but not B, and A executes.
-    const exec = vi.fn().mockResolvedValue(successResult());
-    registry.register(makeTask({ id: 'A', dependsOn: ['B'], executor: exec }));
-
-    const results = await registry.executeAll();
-
-    // A still executes (since B is simply not found in the registry)
-    expect(exec).toHaveBeenCalledOnce();
-    expect(results.get('A')!.ok).toBe(true);
-  });
-
   it('tasks with default priority (undefined) sort to zero', async () => {
     const order: string[] = [];
     registry.register(
@@ -480,5 +465,26 @@ describe('TaskRegistry', () => {
     await registry.executeAll();
 
     expect(order).toEqual(['with-prio', 'no-prio']);
+  });
+});
+
+
+describe('task execution boundaries', () => {
+  it('rejects missing dependencies before executing any tasks', async () => {
+    const registry = new TaskRegistry(mockLogger());
+    const executor = vi.fn().mockResolvedValue({ ok: true });
+    registry.register({ id: 'first', description: 'first', executor });
+    registry.register({ id: 'second', description: 'second', executor, dependsOn: ['missing'] });
+    await expect(registry.executeAll()).rejects.toThrow('Missing task dependency: missing');
+    expect(executor).not.toHaveBeenCalled();
+  });
+
+  it('retains results without rerunning tasks on repeated execution', async () => {
+    const registry = new TaskRegistry(mockLogger());
+    const executor = vi.fn().mockResolvedValue({ ok: true });
+    registry.register({ id: 'once', description: 'once', executor });
+    await registry.executeAll();
+    expect((await registry.executeAll()).get('once')).toEqual({ ok: true });
+    expect(executor).toHaveBeenCalledOnce();
   });
 });

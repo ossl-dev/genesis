@@ -42,6 +42,9 @@ export interface GenesisPlugin<TOptions = unknown> {
   id: string;
   category: GenesisPluginCategory;
   dependsOn?: string[];
+  parseOptions?(options: unknown): TOptions;
+  preApply?(runtime: PluginRuntime<TOptions>): Promise<void>;
+  postApply?(runtime: PluginRuntime<TOptions>): Promise<void>;
   detect?(runtime: PluginRuntime<TOptions>): Promise<DetectResult>;
   /**
    * Optional: Register system-level tasks (e.g., package manager updates, system package installations)

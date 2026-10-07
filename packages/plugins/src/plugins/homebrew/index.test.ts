@@ -202,37 +202,14 @@ describe('homebrew plugin', () => {
     });
   });
 
-  describe('registerTasks', () => {
-    it('registers curl and git prerequisites on macOS', async () => {
-      mockCreatePkgInstallTask.mockReturnValue({ id: 'pkg' });
-      const plugin = createPlugin(homebrew() as any);
-      await plugin.registerTasks!(makeRuntime());
-      expect(mockCreatePkgInstallTask).toHaveBeenCalledWith('curl', '/test', {});
-      expect(mockCreatePkgInstallTask).toHaveBeenCalledWith('git', '/test', {});
-      expect(mockTaskRegistry.register).toHaveBeenCalledTimes(2);
-    });
-
-    it('registers global package tasks when packages are specified', async () => {
-      mockCreatePkgInstallTask.mockReturnValue({ id: 'pkg' });
-      mockCreateCmdCheckTask.mockReturnValue({ id: 'check-brew' });
-      mockCreateCustomTask.mockReturnValue({ id: 'custom-global-packages' });
-      const plugin = createPlugin(homebrew({ global_packages: ['wget'] }) as any);
-      await plugin.registerTasks!(makeRuntime({ global_packages: ['wget'] }));
-      // curl + git + brew check + custom = 4
-      expect(mockTaskRegistry.register).toHaveBeenCalledTimes(4);
-    });
-
-    it('skips registration on Linux', async () => {
-      mockGetPlatform.mockReturnValue('linux');
-      const plugin = createPlugin(homebrew() as any);
-      await plugin.registerTasks!(makeRuntime());
-      expect(mockTaskRegistry.register).not.toHaveBeenCalled();
-    });
-
-    it('skips registration on Windows', async () => {
-      mockGetPlatform.mockReturnValue('windows');
-      const plugin = createPlugin(homebrew() as any);
-      await plugin.registerTasks!(makeRuntime());
+  describe('global packages', () => {
+    it('preserves packages in the factory and installs them after apply', async () => {
+      const instance = homebrew({ global_packages: ['wget'] });
+      expect(instance.options?.global_packages).toEqual(['wget']);
+      const plugin = createPlugin(instance);
+      mockRunCommand.mockResolvedValue({ code: 0, stdout: '', stderr: '' });
+      await plugin.postApply!(makeRuntime({ global_packages: ['wget'] }));
+      expect(mockRunCommand).toHaveBeenCalledWith('brew', ['install', 'wget'], expect.anything());
       expect(mockTaskRegistry.register).not.toHaveBeenCalled();
     });
   });

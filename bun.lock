@@ -52,6 +52,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@ossl/genesis-core": "workspace:*",
+        "zod": "4.1.12",
       },
       "devDependencies": {
         "@types/node": "^22.0.0",

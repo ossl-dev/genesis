@@ -38,6 +38,7 @@ export function buildPluginGraph(
   const perm = new Set<string>();
   const byId = new Map<string, PluginExecutionNode>();
   for (const node of nodes) {
+    if (byId.has(node.instance.id)) throw new Error(`Duplicate plugin id '${node.instance.id}'`);
     byId.set(node.instance.id, node);
   }
   function visit(id: string): void {
@@ -98,61 +99,34 @@ export async function runApply(
   nodes: PluginExecutionNode[],
   context: GenesisPluginContext
 ): Promise<ApplySummary[]> {
-  const result: ApplySummary[] = [];
-
-  // Phase 1: Register system-level tasks
-  context.logger.debug("Phase 1: Registering system-level tasks...");
-  for (const node of nodes) {
-    if (node.plugin.registerTasks) {
-      await node.plugin.registerTasks({
-        instance: node.instance,
-        options: node.instance.options,
-        context,
-      });
-    }
+  const ordered = buildPluginGraph(nodes);
+  for (const node of ordered) {
+    await node.plugin.registerTasks?.({ instance: node.instance, options: node.instance.options, context });
   }
 
-  // Phase 2: Execute all registered system tasks (deduplicated)
-  context.logger.debug("Phase 2: Executing system tasks...");
   const taskResults = await context.taskRegistry.executeAll();
-
-  // Check if any critical tasks failed
-  const failedTasks = Array.from(taskResults.entries()).filter(
-    ([_, result]) => !result.ok
-  );
-  if (failedTasks.length > 0) {
-    context.logger.warn(
-      `${failedTasks.length} system task(s) failed. Plugin installation may be affected.`
-    );
+  const failures = [...taskResults].filter(([, result]) => !result.ok);
+  if (failures.length) {
+    throw new Error(`System tasks failed: ${failures.map(([id, result]) => `${id}: ${result.error ?? result.details ?? "failed"}`).join("; ")}`);
   }
 
-  // Phase 3: Execute plugin apply methods
-  context.logger.debug("Phase 3: Executing plugin apply methods...");
-  for (const node of nodes) {
-    if (!node.plugin.apply) {
-      result.push({
-        id: node.instance.id,
-        category: node.instance.category,
-        ok: true,
-        didChange: false,
-      });
-      continue;
+  const summaries: ApplySummary[] = [];
+  const failed = new Set<string>();
+  for (const node of ordered) {
+    const runtime = { instance: node.instance, options: node.instance.options, context };
+    const dependencies = getDependencies(node).filter(id => failed.has(id));
+    let outcome;
+    if (dependencies.length) {
+      outcome = { ok: false, didChange: false, details: `Dependencies failed: ${dependencies.join(", ")}` };
+    } else {
+      await node.plugin.preApply?.(runtime);
+      outcome = await node.plugin.apply?.(runtime) ?? { ok: true, didChange: false };
+      if (outcome.ok) await node.plugin.postApply?.(runtime);
     }
-    const applyResult = await node.plugin.apply({
-      instance: node.instance,
-      options: node.instance.options,
-      context,
-    });
-    result.push({
-      id: node.instance.id,
-      category: node.instance.category,
-      ok: applyResult.ok,
-      didChange: applyResult.didChange,
-      details: applyResult.details,
-    });
+    if (!outcome.ok) failed.add(node.instance.id);
+    summaries.push({ id: node.instance.id, category: node.instance.category, ...outcome });
   }
-
-  return result;
+  return summaries;
 }
 
 export async function runValidate(

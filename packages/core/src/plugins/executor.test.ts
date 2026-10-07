@@ -284,43 +284,44 @@ describe('runApply', () => {
     ]);
   });
 
-  it('failed task in phase 2 does not block phase 3', async () => {
-    const failedResults = new Map();
-    failedResults.set('system-task', { ok: false, error: 'broken' });
-    context.taskRegistry.executeAll = vi.fn().mockResolvedValue(failedResults);
-
-    const applyFn = vi.fn().mockResolvedValue({ ok: true, didChange: true });
-    const node = mockNode('installer', {
-      registerTasks: vi.fn(),
-      apply: applyFn,
-    });
-
-    const results = await runApply([node], context);
-
-    // Phase 3 still executed
-    expect(applyFn).toHaveBeenCalledOnce();
-    expect(results[0].ok).toBe(true);
-    // But we logged a warning about the failed system task
-    expect(context.logger.warn).toHaveBeenCalledWith(
-      expect.stringContaining('system task(s) failed')
-    );
+  it('blocks plugin apply when a system task fails', async () => {
+    context.taskRegistry.executeAll = vi.fn().mockResolvedValue(new Map([
+      ['system-task', { ok: false, error: 'broken' }],
+    ]));
+    const apply = vi.fn();
+    await expect(runApply([mockNode('installer', { apply })], context)).rejects.toThrow('system-task: broken');
+    expect(apply).not.toHaveBeenCalled();
   });
 
-  it('warns when system tasks fail', async () => {
-    const failedResults = new Map();
-    failedResults.set('t1', { ok: false, error: 'e1' });
-    failedResults.set('t2', { ok: false, error: 'e2' });
-    context.taskRegistry.executeAll = vi.fn().mockResolvedValue(failedResults);
-
-    const node = mockNode('x', {
-      apply: vi.fn().mockResolvedValue({ ok: true, didChange: false }),
+  it('runs hooks in dependency order and skips dependents on failure', async () => {
+    const order: string[] = [];
+    const a = mockNode('a', {
+      preApply: async () => { order.push('pre'); },
+      apply: async () => { order.push('apply'); return { ok: false, didChange: true }; },
+      postApply: async () => { order.push('post'); },
     });
+    const b = mockNode('b', { dependsOn: ['a'], apply: vi.fn() });
+    const results = await runApply([b, a], context);
+    expect(order).toEqual(['pre', 'apply']);
+    expect(b.plugin.apply).not.toHaveBeenCalled();
+    expect(results[1]).toMatchObject({ ok: false, details: 'Dependencies failed: a' });
+  });
 
+  it('runs postApply only after successful apply', async () => {
+    const order: string[] = [];
+    const node = mockNode('a', {
+      preApply: async () => { order.push('pre'); },
+      apply: async () => { order.push('apply'); return { ok: true, didChange: true }; },
+      postApply: async () => { order.push('post'); },
+    });
     await runApply([node], context);
+    expect(order).toEqual(['pre', 'apply', 'post']);
+  });
 
-    expect(context.logger.warn).toHaveBeenCalledWith(
-      expect.stringContaining('2 system task(s) failed')
-    );
+  it('rejects duplicate IDs before any task registration', async () => {
+    const registerTasks = vi.fn();
+    await expect(runApply([mockNode('a', { registerTasks }), mockNode('a')], context)).rejects.toThrow('Duplicate plugin id');
+    expect(registerTasks).not.toHaveBeenCalled();
   });
 
   it('handles multiple plugins with mixed apply presence', async () => {

@@ -1,3 +1,4 @@
+import { optionSchemas } from "../../options.js";
 import {
   type GenesisPlugin,
   type GenesisPluginInstance,
@@ -194,6 +195,7 @@ export function createPlugin(
   return {
     id: instance.id,
     category: instance.category,
+    parseOptions: options => optionSchemas.go.parse(options),
     async detect(runtime) {
       return detectGo(runtime);
     },

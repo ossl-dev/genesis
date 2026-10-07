@@ -1,344 +1,48 @@
 # Plugin Lifecycle
 
-Understanding the Genesis plugin lifecycle.
+Genesis loads every configured plugin and validates its options before executing any provisioning commands. `createPlugin(instance)` must return a plugin with the instance's ID and category. Import failures include the plugin ID and module in the error.
 
-## Overview
+## Options and dependencies
 
-Every Genesis plugin goes through a four-phase lifecycle:
+A plugin may expose `parseOptions(value: unknown)` to validate and normalize its configuration. The loader stores the returned options in the execution node. Built-in plugins use this to apply defaults consistently in YAML and TypeScript and reject invalid or unknown options.
 
-1. **Detection** - Check if tool is installed
-2. **Task Registration** - Register system prerequisites
-3. **Installation** - Install the tool
-4. **Validation** - Verify installation
-
-## Lifecycle Phases
-
-### Phase 0: Detection
-
-**Purpose:** Check if the tool is already installed and at the correct version.
-
-**When:** Before any installation begins
-
-**Method:** `detect(runtime): Promise<DetectResult>`
-
-**Example:**
-
-```typescript
-async detect(runtime) {
-  try {
-    const result = await runCommand("node", ["--version"], {
-      cwd: runtime.context.cwd,
-      env: runtime.context.env,
-    });
-    
-    if (result.code === 0) {
-      const version = result.stdout.trim();
-      return {
-        ok: true,
-        details: `Node.js ${version} is installed`,
-      };
-    }
-  } catch (error) {
-    return {
-      ok: false,
-      details: "Node.js is not installed",
-    };
-  }
-}
-```
-
-### Phase 1: Task Registration
-
-**Purpose:** Register system-level prerequisites that need to be installed.
-
-**When:** After detection, before task execution
-
-**Method:** `registerTasks(runtime): Promise<void>`
-
-**Example:**
-
-```typescript
-async registerTasks(runtime) {
-  const { taskRegistry } = runtime.context;
-  
-  // Register package manager update (deduplicated!)
-  taskRegistry.register(
-    createPackageManagerUpdateTask(
-      runtime.context.cwd,
-      runtime.context.env
-    )
-  );
-  
-  // Register system packages
-  taskRegistry.register(
-    createPackageInstallTask(
-      "curl",
-      runtime.context.cwd,
-      runtime.context.env
-    )
-  );
-}
-```
-
-### Phase 2: Task Execution
-
-**Purpose:** Execute all registered system tasks with deduplication.
-
-**When:** After all plugins register tasks, before plugin installation
-
-**Handled by:** Task Registry (automatic)
-
-**Example output:**
-
-```
-Executing system tasks...
-  ✓ linux:package-manager:apt-update (deduplicated)
-  ✓ linux:package:install:curl
-  ✓ linux:package:install:python3.11
-```
-
-### Phase 3: Installation
-
-**Purpose:** Perform plugin-specific installation work.
-
-**When:** After system tasks complete
-
-**Method:** `apply(runtime): Promise<ApplyResult>`
-
-**Example:**
-
-```typescript
-async apply(runtime) {
-  const { options, context } = runtime;
-  const { logger } = context;
-  
-  logger.info(`Installing Node.js ${options.version}...`);
-  
-  // System dependencies (curl) are now available
-  // Install NVM
-  await installNvm(context);
-  
-  // Install Node.js via NVM
-  await runCommand("nvm", ["install", options.version], {
-    cwd: context.cwd,
-    env: context.env,
-  });
-  
-  return {
-    ok: true,
-    details: `Node.js ${options.version} installed successfully`,
-  };
-}
-```
-
-### Phase 4: Validation
-
-**Purpose:** Verify the installation was successful.
-
-**When:** After installation completes
-
-**Method:** `validate(runtime): Promise<ValidateResult>`
-
-**Example:**
-
-```typescript
-async validate(runtime) {
-  // Usually just reuse detection logic
-  return this.detect!(runtime);
-}
-```
-
-## Complete Lifecycle Example
-
-```typescript
-export function createPlugin(
-  instance: GenesisPluginInstance<NodeOptions>
-): GenesisPlugin<NodeOptions> {
-  return {
-    id: instance.id,
-    category: instance.category,
-    
-    // Phase 0: Detection
-    async detect(runtime) {
-      // Check if Node.js is installed
-      // Return { ok: boolean, details: string }
-    },
-    
-    // Phase 1: Task Registration
-    async registerTasks(runtime) {
-      // Register apt-update, install curl
-      // No return value
-    },
-    
-    // Phase 3: Installation
-    async apply(runtime) {
-      // Install NVM and Node.js
-      // Return { ok: boolean, details: string }
-    },
-    
-    // Phase 4: Validation
-    async validate(runtime) {
-      // Verify installation
-      // Return { ok: boolean, details: string }
-    },
-  };
-}
-```
-
-## Execution Flow
-
-```
-User runs: genesis apply
-    ↓
-Load configuration
-    ↓
-Load plugins
-    ↓
-┌─────────────────────────────────────┐
-│ Phase 0: Detection (parallel)       │
-│ - Check if tools are installed      │
-│ - Skip if already correct version   │
-└─────────────────────────────────────┘
-    ↓
-┌─────────────────────────────────────┐
-│ Phase 1: Task Registration          │
-│ - Plugin A registers tasks          │
-│ - Plugin B registers tasks          │
-│ - Tasks collected in registry       │
-└─────────────────────────────────────┘
-    ↓
-┌─────────────────────────────────────┐
-│ Phase 2: Task Execution              │
-│ - Deduplicate tasks by ID           │
-│ - Sort by priority and dependencies │
-│ - Execute sequentially               │
-└─────────────────────────────────────┘
-    ↓
-┌─────────────────────────────────────┐
-│ Phase 3: Plugin Installation         │
-│ - Plugin A installs                  │
-│ - Plugin B installs                  │
-│ - System dependencies available      │
-└─────────────────────────────────────┘
-    ↓
-┌─────────────────────────────────────┐
-│ Phase 4: Validation (parallel)       │
-│ - Verify Plugin A installation       │
-│ - Verify Plugin B installation       │
-└─────────────────────────────────────┘
-    ↓
-Report results
-```
-
-## Lifecycle Methods
-
-### Required Methods
-
-None! All methods are optional.
-
-### Optional Methods
-
-- `detect?` - Recommended for all plugins
-- `registerTasks?` - Use if plugin needs system packages
-- `apply?` - Required if plugin installs anything
-- `validate?` - Recommended for verification
-
-### Minimal Plugin
+`dependsOn` lists other configured plugin IDs. The executor sorts dependencies before dependents. Duplicate IDs, missing dependencies, and cycles fail before task registration.
 
 ```typescript
 export function createPlugin(instance) {
   return {
     id: instance.id,
     category: instance.category,
-    
-    // Only implement what you need
+    dependsOn: ["node"],
+    async preApply(runtime) {
+      // Prepare plugin-specific state after system prerequisites succeed.
+    },
     async apply(runtime) {
-      // Just install the tool
+      return { ok: true, didChange: false };
+    },
+    async postApply(runtime) {
+      // Run follow-up work only after this plugin's apply succeeds.
     },
   };
 }
 ```
 
-### Full Plugin
+## Apply order
 
-```typescript
-export function createPlugin(instance) {
-  return {
-    id: instance.id,
-    category: instance.category,
-    
-    // Implement all phases
-    async detect(runtime) { /* ... */ },
-    async registerTasks(runtime) { /* ... */ },
-    async apply(runtime) { /* ... */ },
-    async validate(runtime) { /* ... */ },
-  };
-}
-```
+1. `registerTasks` runs for each plugin in dependency order.
+2. The task registry executes deduplicated system prerequisites. Missing task dependencies and cycles fail before any task runs. A failed system task stops plugin apply.
+3. For each plugin, Genesis runs `preApply`, `apply`, then `postApply`. A returned `ok: false` skips that plugin's post hook and blocks its dependents. Unrelated plugins may continue. Thrown errors stop the run.
 
-## Best Practices
+Hooks receive the same runtime as `apply`: `instance`, normalized `options`, and `context` (`cwd`, `env`, `logger`, `taskRegistry`). Hooks run even when `apply` reports no change, so make them safe to repeat. Register prerequisites in `registerTasks`; the task execution phase is already over when hooks run.
 
-### 1. Always Implement Detection
+Node's global npm packages and Homebrew's global packages install after their runtime or package manager is ready. They are not system prerequisites. Failed package installation stops the run.
 
-```typescript
-// ✅ Good: Check before installing
-async detect(runtime) {
-  // Check if tool exists
-}
+## Inspection
 
-async apply(runtime) {
-  const detectResult = await this.detect!(runtime);
-  if (detectResult.ok) {
-    return { ok: true, details: "Already installed" };
-  }
-  // Install...
-}
-```
+`detect` reports whether the requested tool is present. `validate` checks the desired state. `doctor` calls both and reports failures with a nonzero exit status. `diff` calls detection without applying plugins.
 
-### 2. Use Task Registry for System Operations
+## Limits
 
-```typescript
-// ✅ Good: Register system tasks
-async registerTasks(runtime) {
-  taskRegistry.register(
-    createPackageInstallTask("curl", cwd, env)
-  );
-}
+Automatic rollback is not implemented. A failed apply can leave earlier changes in place. Hooks do not imply transactional installs. The default CLI uses sequential plugin execution; the separate parallel engine is a core API.
 
-// ❌ Bad: Install in apply()
-async apply(runtime) {
-  await runCommand("sudo", ["apt-get", "install", "curl"]);
-}
-```
-
-### 3. Validate After Installation
-
-```typescript
-// ✅ Good: Verify installation
-async validate(runtime) {
-  return this.detect!(runtime);
-}
-```
-
-### 4. Provide Detailed Feedback
-
-```typescript
-// ✅ Good: Detailed messages
-return {
-  ok: true,
-  details: "Node.js 20.10.0 installed successfully via NVM",
-};
-
-// ❌ Bad: Vague messages
-return {
-  ok: true,
-  details: "Done",
-};
-```
-
-## What's Next?
-
-- [Creating a Plugin](/plugins/creating-plugin) - Build your own plugin
-- [Best Practices](/plugins/best-practices) - Plugin development tips
-- [Task Registry](/guide/task-registry) - Learn about task deduplication
-
+On macOS, install Homebrew before provisioning other plugins that register brew tasks. Including Homebrew in the same config does not currently bootstrap it ahead of the shared system-task phase.

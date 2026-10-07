@@ -1,3 +1,4 @@
+import { optionSchemas } from "../../options.js";
 import {
   type GenesisPlugin,
   type GenesisPluginInstance,
@@ -365,6 +366,7 @@ export function createPlugin(
   return {
     id: instance.id,
     category: instance.category,
+    parseOptions: options => optionSchemas.docker.parse(options),
     async detect(runtime) {
       const dockerResult = await detectDocker(runtime);
 

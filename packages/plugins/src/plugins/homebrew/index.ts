@@ -1,13 +1,10 @@
+import { optionSchemas } from "../../options.js";
 import {
   type GenesisPlugin,
   type GenesisPluginInstance,
   type PluginRuntime,
   runCommand,
   getPlatform,
-  createPackageManagerUpdateTask,
-  createPackageInstallTask,
-  createCommandCheckTask,
-  createCustomTask,
 } from "@ossl/genesis-core";
 import os from "node:os";
 import path from "node:path";
@@ -28,6 +25,7 @@ export function homebrew(
     category: "tool",
     module: "@ossl/genesis-plugins/homebrew",
     options: {
+      ...options,
       update_packages: options.update_packages ?? true,
       install_cask: options.install_cask ?? true,
       add_to_path: options.add_to_path ?? true,
@@ -141,7 +139,7 @@ async function installHomebrew(
     // Run the installation script directly
     const installResult = await runCommand(
       "bash",
-      ["-c", `curl -fsSL ${installUrl} | bash`],
+      ["-c", `set -o pipefail; curl -fsSL ${installUrl} | bash`],
       {
         cwd: runtime.context.cwd,
         env: runtime.context.env,
@@ -158,6 +156,7 @@ async function installHomebrew(
     const homebrewDir =
       arch === "arm64" ? getHomebrewDir() : getIntelHomebrewDir();
     const homebrewBin = path.join(homebrewDir, "bin");
+    runtime.context.env.PATH = `${homebrewBin}${path.delimiter}${runtime.context.env.PATH ?? process.env.PATH ?? ""}`;
 
     // Update PATH if requested
     if (runtime.options.add_to_path) {
@@ -297,75 +296,15 @@ export function createPlugin(
   return {
     id: instance.id,
     category: instance.category,
+    parseOptions: options => optionSchemas.homebrew.parse(options),
     async detect(runtime) {
       return detectHomebrew(runtime);
     },
-    async registerTasks(runtime) {
-      const { taskRegistry, logger } = runtime.context;
-      const { global_packages } = runtime.options;
-      const platform = getPlatform();
-
-      // Homebrew is macOS only
-      if (platform !== "macos") {
-        return;
-      }
-
-      logger.debug("Registering system tasks for Homebrew installation");
-
-      // Register curl for downloading installation script
-      const curlTask = createPackageInstallTask(
-        "curl",
-        runtime.context.cwd,
-        runtime.context.env,
-      );
-      taskRegistry.register(curlTask);
-
-      // Register git (Homebrew uses git internally)
-      const gitTask = createPackageInstallTask(
-        "git",
-        runtime.context.cwd,
-        runtime.context.env,
-      );
-      taskRegistry.register(gitTask);
-
-      // Register global package installation tasks if packages are specified
-      if (global_packages && global_packages.length > 0) {
-        logger.debug("Registering global brew package installation tasks");
-
-        // Register brew availability check
-        const brewCheckTask = createCommandCheckTask(
-          "brew",
-          runtime.context.cwd,
-          runtime.context.env,
-        );
-        taskRegistry.register(brewCheckTask);
-
-        // Register global package installation task
-        const installTask = createCustomTask(
-          "homebrew-global-packages",
-          "Install global Homebrew packages",
-          async () => {
-            const result = await installGlobalBrewPackages(
-              runtime,
-              global_packages,
-            );
-            return {
-              ok: result.ok,
-              details: result.details,
-              error: result.ok ? undefined : "Brew package installation failed",
-            };
-          },
-          {
-            priority: 10, // Low priority - run after other setup
-            dependsOn: ["*:command-check:brew"],
-          },
-        );
-
-        taskRegistry.register(installTask);
-        logger.debug("Global brew package installation tasks registered");
-      }
-
-      logger.debug("System tasks registered: curl, git installation");
+    async postApply(runtime) {
+      const packages = runtime.options.global_packages ?? [];
+      if (!packages.length) return;
+      const result = await installGlobalBrewPackages(runtime, packages);
+      if (!result.ok) throw new Error(result.details);
     },
     async apply(runtime) {
       const { logger } = runtime.context;

@@ -1,3 +1,4 @@
+import { optionSchemas } from "../../options.js";
 import {
   type GenesisPlugin,
   type GenesisPluginInstance,
@@ -6,8 +7,6 @@ import {
   getPlatform,
   createPackageManagerUpdateTask,
   createPackageInstallTask,
-  createCommandCheckTask,
-  createCustomTask,
 } from "@ossl/genesis-core";
 import os from "node:os";
 import path from "node:path";
@@ -78,29 +77,6 @@ async function isNvmInstalled(
 }
 
 /**
- * Check if NVM command is available in the current shell
- */
-async function isNvmAvailable(
-  runtime: PluginRuntime<NodeOptions>,
-): Promise<boolean> {
-  // NVM is a shell function, so we need to check if it's sourced
-  // We'll try to run a command that sources NVM and checks if it exists
-  const nvmDir = getNvmDir(runtime.context.env);
-  const nvmScript = path.join(nvmDir, "nvm.sh");
-
-  const result = await runCommand(
-    "bash",
-    ["-c", `source "${nvmScript}" && command -v nvm`],
-    {
-      cwd: runtime.context.cwd,
-      env: runtime.context.env,
-    },
-  );
-
-  return result.code === 0 && result.stdout.trim() === "nvm";
-}
-
-/**
  * Install NVM on macOS/Linux using the official install script
  */
 async function installNvm(
@@ -127,7 +103,7 @@ async function installNvm(
   // Download and run the install script (curl should be available from registerTasks phase)
   const result = await runCommand(
     "bash",
-    ["-c", `set -o pipefail; curl -o- ${installUrl} | bash`],
+    ["-c", `set -o pipefail; curl -fsSL ${installUrl} | bash`],
     {
       cwd: runtime.context.cwd,
       env: runtime.context.env,
@@ -172,7 +148,7 @@ async function installNodeViaNvm(
   // Install the requested Node version
   const installResult = await runCommand(
     "bash",
-    ["-c", `source "${nvmScript}" && nvm install ${version}`],
+    ["-c", 'source "$1" && nvm install "$2"', "genesis-nvm", nvmScript, version],
     {
       cwd: runtime.context.cwd,
       env: runtime.context.env,
@@ -196,7 +172,7 @@ async function installNodeViaNvm(
   logger.debug(`Setting Node.js ${version} as default...`);
   const aliasResult = await runCommand(
     "bash",
-    ["-c", `source "${nvmScript}" && nvm alias default ${version}`],
+    ["-c", 'source "$1" && nvm alias default "$2"', "genesis-nvm", nvmScript, version],
     {
       cwd: runtime.context.cwd,
       env: runtime.context.env,
@@ -261,7 +237,11 @@ async function installGlobalNpmPackages(
 
   logger.info(`Installing global npm packages: ${packages.join(", ")}`);
 
-  const result = await runCommand("npm", ["install", "-g", ...packages], {
+  const result = runtime.options.use_nvm && getPlatform() !== "windows"
+    ? await runCommand("bash", ["-c", 'source "$1" && nvm use "$2" && shift 2 && npm install -g -- "$@"', "genesis-npm", path.join(getNvmDir(runtime.context.env), "nvm.sh"), runtime.options.version, ...packages], {
+      cwd: runtime.context.cwd, env: runtime.context.env,
+    })
+    : await runCommand("npm", ["install", "-g", "--", ...packages], {
     cwd: runtime.context.cwd,
     env: runtime.context.env,
   });
@@ -276,105 +256,6 @@ async function installGlobalNpmPackages(
   return {
     ok: true,
     details: `Successfully installed npm packages: ${packages.join(", ")}`,
-  };
-}
-
-/**
- * Install global yarn packages
- */
-async function installGlobalYarnPackages(
-  runtime: PluginRuntime<NodeOptions>,
-  packages: string[],
-): Promise<{ ok: boolean; details: string }> {
-  const { logger } = runtime.context;
-
-  if (packages.length === 0) {
-    return { ok: true, details: "No global yarn packages to install" };
-  }
-
-  logger.info(`Installing global yarn packages: ${packages.join(", ")}`);
-
-  const result = await runCommand("yarn", ["global", "add", ...packages], {
-    cwd: runtime.context.cwd,
-    env: runtime.context.env,
-  });
-
-  if (result.code !== 0) {
-    return {
-      ok: false,
-      details: `Failed to install yarn packages: ${result.stderr || "Unknown error"}`,
-    };
-  }
-
-  return {
-    ok: true,
-    details: `Successfully installed yarn packages: ${packages.join(", ")}`,
-  };
-}
-
-/**
- * Install global pnpm packages
- */
-async function installGlobalPnpmPackages(
-  runtime: PluginRuntime<NodeOptions>,
-  packages: string[],
-): Promise<{ ok: boolean; details: string }> {
-  const { logger } = runtime.context;
-
-  if (packages.length === 0) {
-    return { ok: true, details: "No global pnpm packages to install" };
-  }
-
-  logger.info(`Installing global pnpm packages: ${packages.join(", ")}`);
-
-  const result = await runCommand("pnpm", ["add", "-g", ...packages], {
-    cwd: runtime.context.cwd,
-    env: runtime.context.env,
-  });
-
-  if (result.code !== 0) {
-    return {
-      ok: false,
-      details: `Failed to install pnpm packages: ${result.stderr || "Unknown error"}`,
-    };
-  }
-
-  return {
-    ok: true,
-    details: `Successfully installed pnpm packages: ${packages.join(", ")}`,
-  };
-}
-
-/**
- * Install global bun packages
- */
-async function installGlobalBunPackages(
-  runtime: PluginRuntime<NodeOptions>,
-  packages: string[],
-): Promise<{ ok: boolean; details: string }> {
-  const { logger } = runtime.context;
-
-  if (packages.length === 0) {
-    return { ok: true, details: "No global bun packages to install" };
-  }
-
-  logger.info(`Installing global bun packages: ${packages.join(", ")}`);
-
-  const result = await runCommand("bun", ["add", "-g", ...packages], {
-    cwd: runtime.context.cwd,
-    env: runtime.context.env,
-  });
-
-  if (result.code !== 0) {
-    return {
-      ok: false,
-      details: `Failed to install bun packages: ${result.stderr || "Unknown error"}`,
-    };
-  }
-
-  return {
-    ok: true,
-    details: `Successfully installed bun packages: ${packages.join(", ")}`,
   };
 }
 
@@ -414,6 +295,7 @@ export function createPlugin(
   return {
     id: instance.id,
     category: instance.category,
+    parseOptions: options => optionSchemas.node.parse(options),
     async detect(runtime) {
       return detectNode(runtime);
     },
@@ -453,59 +335,12 @@ export function createPlugin(
         );
       }
 
-      // Register global package installation tasks if packages are specified
-      if (global_packages && global_packages.length > 0) {
-        logger.debug("Registering global package installation tasks");
-
-        // Register package manager availability checks
-        const packageManagers = ["npm", "yarn", "pnpm", "bun"];
-        for (const pm of packageManagers) {
-          const checkTask = createCommandCheckTask(
-            pm,
-            runtime.context.cwd,
-            runtime.context.env,
-          );
-          taskRegistry.register(checkTask);
-        }
-
-        // Register global package installation task
-        const installTask = createCustomTask(
-          "node-global-packages",
-          "Install global Node.js packages",
-          async () => {
-            const results = [];
-            let hasErrors = false;
-
-            // Try npm first
-            const npmResult = await installGlobalNpmPackages(
-              runtime,
-              global_packages,
-            );
-            results.push(npmResult.details);
-            if (!npmResult.ok) hasErrors = true;
-
-            return {
-              ok: !hasErrors,
-              details: results.join("; "),
-              error: hasErrors
-                ? "Some package installations failed"
-                : undefined,
-            };
-          },
-          {
-            priority: 10, // Low priority - run after other setup
-            dependsOn: [
-              "*:command-check:npm",
-              "*:command-check:yarn",
-              "*:command-check:pnpm",
-              "*:command-check:bun",
-            ],
-          },
-        );
-
-        taskRegistry.register(installTask);
-        logger.debug("Global package installation tasks registered");
-      }
+    },
+    async postApply(runtime) {
+      const packages = runtime.options.global_packages ?? [];
+      if (!packages.length) return;
+      const result = await installGlobalNpmPackages(runtime, packages);
+      if (!result.ok) throw new Error(result.details);
     },
     async apply(runtime) {
       const { logger } = runtime.context;

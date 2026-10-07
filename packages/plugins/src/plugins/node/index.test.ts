@@ -306,7 +306,7 @@ describe('node plugin', () => {
       expect(mockTaskRegistry.register).not.toHaveBeenCalled();
     });
 
-    it('registers global package tasks when packages are specified', async () => {
+    it('keeps global packages out of the prerequisite phase', async () => {
       mockCreatePkgUpdateTask.mockReturnValue({ id: 'update' });
       mockCreatePkgInstallTask.mockReturnValue({ id: 'curl' });
       mockCreateCmdCheckTask.mockReturnValue({ id: 'check-npm' });
@@ -315,8 +315,8 @@ describe('node plugin', () => {
       const plugin = createPlugin(node({ version: '20', global_packages: ['typescript'] }) as any);
       await plugin.registerTasks!(makeRuntime({ global_packages: ['typescript'] }));
 
-      // 4 command checks + 1 custom + 2 prerequisites = 7
-      expect(mockTaskRegistry.register).toHaveBeenCalledTimes(7);
+      expect(mockTaskRegistry.register).toHaveBeenCalledTimes(2);
+      expect(mockCreateCustomTask).not.toHaveBeenCalled();
     });
 
     it('does not register global package tasks when list is empty', async () => {
@@ -356,4 +356,12 @@ describe('node plugin', () => {
       expect(inst.options.use_nvm).toBe(false);
     });
   });
+});
+
+
+it('installs global packages through NVM after Node is ready', async () => {
+  mockRunCommand.mockResolvedValue({ code: 0, stdout: '', stderr: '' });
+  const plugin = createPlugin(node({ version: '20', global_packages: ['typescript'] }));
+  await plugin.postApply!(makeRuntime({ global_packages: ['typescript'] }));
+  expect(mockRunCommand).toHaveBeenCalledWith('bash', expect.arrayContaining(['genesis-npm', '/home/testuser/.nvm/nvm.sh', '20', 'typescript']), expect.anything());
 });

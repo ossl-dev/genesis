@@ -57,10 +57,10 @@ Make existing stuff faster, safer, more portable.
 
 ### Plugin lifecycle
 
-- [ ] Add `preApply` / `postApply` hooks per plugin (some plugins need to run before/after others)
+- [x] Add `preApply` / `postApply` hooks per plugin (some plugins need to run before/after others)
 - [ ] Add plugin rollback on failure — if plugin C fails, undo plugin B's changes
-- [ ] Add plugin config validation at load time, not just at apply time
-- [ ] Support plugin dependencies — plugin A must apply before plugin B
+- [x] Add plugin config validation at load time, not just at apply time
+- [x] Support plugin dependencies — plugin A must apply before plugin B
 
 ### Platform support
 

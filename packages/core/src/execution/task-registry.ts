@@ -13,8 +13,6 @@
  */
 
 import { type Logger } from "../utils/logger.js";
-import { runCommand } from "../os/shell.js";
-import { getPlatform, type Platform } from "../os/platform.js";
 
 /**
  * Unique identifier for a system task
@@ -74,11 +72,9 @@ interface TaskState {
 export class TaskRegistry {
   private tasks = new Map<TaskId, TaskState>();
   private logger: Logger;
-  private platform: Platform;
 
   constructor(logger: Logger) {
     this.logger = logger;
-    this.platform = getPlatform();
   }
 
   /**
@@ -141,6 +137,10 @@ export class TaskRegistry {
     for (const taskId of sortedTasks) {
       const state = this.tasks.get(taskId);
       if (!state) continue;
+      if (state.result) {
+        results.set(taskId, state.result);
+        continue;
+      }
 
       // Check if dependencies completed successfully
       const deps = state.task.dependsOn ?? [];
@@ -212,7 +212,7 @@ export class TaskRegistry {
       }
 
       const state = this.tasks.get(taskId);
-      if (!state) return;
+      if (!state) throw new Error(`Missing task dependency: ${taskId}`);
 
       temp.add(taskId);
 

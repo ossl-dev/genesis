@@ -30,17 +30,30 @@ async function importPluginModule(moduleId: string): Promise<unknown> {
 export async function loadPlugin(
   instance: GenesisPluginInstance
 ): Promise<PluginExecutionNode> {
-  const mod = await importPluginModule(instance.module);
+  let mod: unknown;
+  try {
+    mod = await importPluginModule(instance.module);
+  } catch (error) {
+    throw new Error(`Failed to load plugin '${instance.id}' from '${instance.module}': ${error instanceof Error ? error.message : String(error)}`);
+  }
   const create = (
     mod as { createPlugin?: (instance: GenesisPluginInstance) => GenesisPlugin }
   ).createPlugin;
-  if (!create) {
+  if (typeof create !== "function") {
     throw new Error(
       `Plugin module '${instance.module}' does not export createPlugin`
     );
   }
   const plugin = create(instance);
-  return { instance, plugin };
+  if (!plugin || plugin.id !== instance.id || plugin.category !== instance.category) {
+    throw new Error(`Plugin '${instance.id}' returned invalid identity from '${instance.module}'`);
+  }
+  if (!plugin.parseOptions) return { instance, plugin };
+  try {
+    return { instance: { ...instance, options: plugin.parseOptions(instance.options) }, plugin };
+  } catch (error) {
+    throw new Error(`Invalid options for plugin '${instance.id}': ${error instanceof Error ? error.message : String(error)}`);
+  }
 }
 
 export async function loadPlugins(

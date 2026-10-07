@@ -34,7 +34,7 @@ Genesis has zero tests. That's the first thing to fix.
 
 Code exists but doesn't actually do the thing yet. Finish it.
 
-- [x] **ParallelExecutionEngine** — the class is wired up but `getMemoryUsage` returns 0, `detectResourceConflicts` returns empty, `isCriticalPath` always returns true. Make it do real resource-aware parallel scheduling.
+- [x] **ParallelExecutionEngine** — preserve executable plugin nodes, schedule dependency layers with bounded workers, clamp concurrency to available CPUs, serialize overlapping configured paths/ports, and propagate failures. Resource checks are conservative heuristics; CLI apply remains sequential.
 - [x] **EnvironmentCacheManager** — full interface exists, but `restore`, `decompress`, `sync`, `snapshot` methods only log. Implement actual I/O so `genesis` can cache and restore dev environments.
 - [x] **genesis login** — CLI command exists, emits placeholder output. Implement OAuth flow and token storage.
 - [x] **genesis list --cloud** — exists, prints hardcoded example output. Wire to real backend.
@@ -187,7 +187,7 @@ Not triaged into phases. Fix anytime.
 - [ ] **Docker Desktop on macOS**: plugin offers Colima then Docker Desktop as alternatives, but Docker Desktop requires user to accept license interactively — breaks non-interactive apply.
 - [ ] **Go arch detection**: download URL hardcodes `amd64`. On Apple Silicon it downloads the wrong binary.
 - [ ] **Node standalone install**: `use_nvm: false` prints "standalone installation not yet supported" and skips. Should at least try fnm or a direct download.
-- [ ] **Parallel execution with one core**: `ParallelExecutionEngine` doesn't check available CPUs — could oversubscribe a low-resource machine.
+- [x] **Parallel execution with one core**: `ParallelExecutionEngine` doesn't check available CPUs — could oversubscribe a low-resource machine.
 - [x] **Config validation error messages**: Zod errors are printed raw without context. "Expected number, got string" on a deeply nested field is hard to debug — need path + friendly message.
 - [ ] **Plugin loading silently fails**: if a plugin module throws during import, it's caught and logged as debug. Should surface in `genesis doctor` at minimum.
 - [ ] **No config file caching**: every `genesis apply` re-parses and re-validates the config. Add hash-based skip when nothing changed.

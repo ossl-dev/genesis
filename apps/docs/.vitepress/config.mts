@@ -150,6 +150,7 @@ export default defineConfig({
               { text: "Core API", link: "core" },
               { text: "Plugin API", link: "plugin" },
               { text: "Task Registry API", link: "task-registry" },
+              { text: "Parallel Execution", link: "execution" },
               { text: "Utilities", link: "utilities" },
             ],
           },

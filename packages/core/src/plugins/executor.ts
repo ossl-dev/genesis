@@ -95,12 +95,11 @@ export async function runDetect(
   return result;
 }
 
-export async function runApply(
+export async function runApplyPrerequisites(
   nodes: PluginExecutionNode[],
-  context: GenesisPluginContext
-): Promise<ApplySummary[]> {
-  const ordered = buildPluginGraph(nodes);
-  for (const node of ordered) {
+  context: GenesisPluginContext,
+): Promise<void> {
+  for (const node of nodes) {
     await node.plugin.registerTasks?.({ instance: node.instance, options: node.instance.options, context });
   }
 
@@ -109,6 +108,15 @@ export async function runApply(
   if (failures.length) {
     throw new Error(`System tasks failed: ${failures.map(([id, result]) => `${id}: ${result.error ?? result.details ?? "failed"}`).join("; ")}`);
   }
+
+}
+
+export async function runApply(
+  nodes: PluginExecutionNode[],
+  context: GenesisPluginContext
+): Promise<ApplySummary[]> {
+  const ordered = buildPluginGraph(nodes);
+  await runApplyPrerequisites(ordered, context);
 
   const summaries: ApplySummary[] = [];
   const failed = new Set<string>();

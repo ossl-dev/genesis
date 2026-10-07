@@ -11,12 +11,14 @@ export type GenesisPluginCategory = (typeof GENESIS_PLUGIN_CATEGORIES)[number];
 export interface RepoSpec {
   url: string;
   folder: string;
+  branch?: string;
 }
 
 export interface ScriptSpec {
   name: string;
   command: string;
   description?: string;
+  when?: "before" | "after";
 }
 
 export interface GenesisPluginInstance<TOptions = unknown> {

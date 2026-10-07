@@ -2,31 +2,11 @@ import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import yaml from "yaml";
-import {
-  type GenesisConfig,
-  type GenesisPluginInstance,
-  type GenesisPluginCategory,
-} from "./schema.js";
+import { z } from "zod";
+import { type GenesisConfig, type GenesisPluginCategory } from "./schema.js";
 import { validateConfig } from "./validator.js";
 
-interface YamlPluginEntry {
-  type: string;
-  [key: string]: unknown;
-}
-
-interface YamlConfig {
-  tools?: YamlPluginEntry[];
-  sdks?: YamlPluginEntry[];
-  languages?: YamlPluginEntry[];
-  repositories?: GenesisConfig["repositories"];
-  scripts?: GenesisConfig["scripts"];
-  env?: GenesisConfig["env"];
-}
-
-const yamlPluginDefaults: Record<
-  string,
-  { module: string; category: GenesisPluginCategory }
-> = {
+const yamlPluginDefaults: Record<string, { module: string; category: GenesisPluginCategory }> = {
   node: { module: "@ossl/genesis-plugins/node", category: "tool" },
   python: { module: "@ossl/genesis-plugins/python", category: "language" },
   go: { module: "@ossl/genesis-plugins/go", category: "language" },
@@ -36,81 +16,63 @@ const yamlPluginDefaults: Record<
   git: { module: "@ossl/genesis-plugins/git", category: "tool" },
 };
 
-function yamlEntryToInstance(entry: YamlPluginEntry): GenesisPluginInstance {
-  const meta = yamlPluginDefaults[entry.type];
-  if (!meta) {
-    throw new Error(
-      `Unknown plugin type '${entry.type}' in genesis.config.yaml`
-    );
-  }
-  const { type, ...options } = entry;
-  return {
-    id: type,
-    category: meta.category,
-    module: meta.module,
-    options,
-  };
-}
-
-function isGenesisConfigShape(value: unknown): boolean {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-  const data = value as Record<string, unknown>;
-  let found = false;
+function normalizeYamlConfig(raw: unknown): unknown {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return raw;
+  const config = { ...raw } as Record<string, unknown>;
   for (const section of ["tools", "sdks", "languages"]) {
-    const list = data[section];
-    if (Array.isArray(list) && list.length > 0) {
-      found = true;
-      const first = list[0] as Record<string, unknown>;
-      if (!first.id || !first.module || !first.category) {
-        return false;
+    const entries = config[section];
+    if (!Array.isArray(entries)) continue;
+    config[section] = entries.map((entry, index) => {
+      if (!entry || typeof entry !== "object" || !("type" in entry)) return entry;
+      const { type, ...options } = entry;
+      const meta = typeof type === "string" ? yamlPluginDefaults[type] : undefined;
+      if (!meta) {
+        throw new Error(`Unknown plugin type '${type}' in genesis.config.yaml (${section}[${index}])`);
       }
-    }
+      return { id: type, category: meta.category, module: meta.module, options };
+    });
   }
-  return found;
+  return config;
 }
 
-function normalizeYamlConfig(raw: unknown): GenesisConfig {
-  const value = raw as YamlConfig;
-  const config: GenesisConfig = {};
-  if (value.tools) {
-    config.tools = value.tools.map(yamlEntryToInstance);
+function interpolate(value: unknown, env: NodeJS.ProcessEnv, location = "config"): unknown {
+  if (typeof value === "string") {
+    return value.replace(/\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g, (_, name: string) => {
+      if (env[name] === undefined) throw new Error(`${location}: environment variable '${name}' is not set`);
+      return env[name];
+    });
   }
-  if (value.sdks) {
-    config.sdks = value.sdks.map(yamlEntryToInstance);
+  if (Array.isArray(value)) return value.map((entry, index) => interpolate(entry, env, `${location}[${index}]`));
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, interpolate(entry, env, `${location}.${key}`)]));
   }
-  if (value.languages) {
-    config.languages = value.languages.map(yamlEntryToInstance);
-  }
-  if (value.repositories) {
-    config.repositories = value.repositories;
-  }
-  if (value.scripts) {
-    config.scripts = value.scripts;
-  }
-  if (value.env) {
-    config.env = value.env;
-  }
-  return validateConfig(config);
+  return value;
 }
 
-export async function loadConfig(cwd: string): Promise<GenesisConfig> {
-  const tsPath = path.join(cwd, "genesis.config.ts");
-  const yamlPath = path.join(cwd, "genesis.config.yaml");
-  if (fs.existsSync(tsPath)) {
-    const url = pathToFileURL(tsPath).href;
-    const mod = await import(url);
-    const value = mod.default ?? mod.config ?? mod;
-    return validateConfig(value);
-  }
-  if (fs.existsSync(yamlPath)) {
-    const rawText = await fs.promises.readFile(yamlPath, "utf8");
-    const raw = yaml.parse(rawText);
-    if (isGenesisConfigShape(raw)) {
-      return validateConfig(raw);
+export async function loadConfig(
+  cwd: string,
+  configPath?: string,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<GenesisConfig> {
+  const file = configPath
+    ? path.resolve(cwd, configPath)
+    : ["genesis.config.ts", "genesis.config.yaml"].map(name => path.join(cwd, name)).find(candidate => fs.existsSync(candidate));
+  if (!file) throw new Error("No genesis.config.ts or genesis.config.yaml found");
+  try {
+    let raw: unknown;
+    if (path.extname(file) === ".ts") {
+      const mod = await import(pathToFileURL(file).href);
+      raw = mod.default ?? mod.config ?? mod;
+    } else if ([".yaml", ".yml"].includes(path.extname(file))) {
+      raw = normalizeYamlConfig(yaml.parse(await fs.promises.readFile(file, "utf8")));
+    } else {
+      throw new Error("Config file must use .ts, .yaml, or .yml");
     }
-    return normalizeYamlConfig(raw);
+    return validateConfig(interpolate(raw, env));
+  } catch (error) {
+    const message = error instanceof z.ZodError
+      ? error.issues.map(issue => `${issue.path.join(".") || "config"}: ${issue.message}`).join("\n")
+      : error instanceof Error ? error.message : String(error);
+    throw new Error(`${file}: ${message}`);
   }
-  throw new Error("No genesis.config.ts or genesis.config.yaml found");
 }

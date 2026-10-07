@@ -80,7 +80,7 @@ Make existing stuff faster, safer, more portable.
 
 - [ ] Add config file merging — load `genesis.config.yaml` + override with env-specific partials
 - [ ] Add config file watching / hot-reload for `genesis apply --watch`
-- [ ] Allow config values to reference environment variables (`${HOME}`, `${USER}`, etc.)
+- [x] Allow config values to reference environment variables (`${HOME}`, `${USER}`, etc.)
 - [ ] Add `$schema` field to generated config for editor autocomplete
 
 ---
@@ -188,7 +188,7 @@ Not triaged into phases. Fix anytime.
 - [ ] **Go arch detection**: download URL hardcodes `amd64`. On Apple Silicon it downloads the wrong binary.
 - [ ] **Node standalone install**: `use_nvm: false` prints "standalone installation not yet supported" and skips. Should at least try fnm or a direct download.
 - [ ] **Parallel execution with one core**: `ParallelExecutionEngine` doesn't check available CPUs — could oversubscribe a low-resource machine.
-- [ ] **Config validation error messages**: Zod errors are printed raw without context. "Expected number, got string" on a deeply nested field is hard to debug — need path + friendly message.
+- [x] **Config validation error messages**: Zod errors are printed raw without context. "Expected number, got string" on a deeply nested field is hard to debug — need path + friendly message.
 - [ ] **Plugin loading silently fails**: if a plugin module throws during import, it's caught and logged as debug. Should surface in `genesis doctor` at minimum.
 - [ ] **No config file caching**: every `genesis apply` re-parses and re-validates the config. Add hash-based skip when nothing changed.
 - [ ] **`genesis diff` output**: currently prints the full config on both sides. Should show only what changed.

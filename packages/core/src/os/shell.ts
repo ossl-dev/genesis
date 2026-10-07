@@ -22,7 +22,7 @@ export async function runCommand(
     reject: false,
   });
   return {
-    code: subprocess.exitCode ?? 0,
+    code: subprocess.exitCode ?? 1,
     stdout: subprocess.stdout,
     stderr: subprocess.stderr,
   };

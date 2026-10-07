@@ -41,7 +41,7 @@ export function registerApplyCommand(program: Command): void {
       "[environment-id]",
       "Environment ID from Genesis Cloud (optional)",
     )
-    .option("--config <path>", "Path to config file", "./genesis.config.yaml")
+    .option("--config <path>", "Path to config file")
     .option("--cloud", "Apply environment from Genesis Cloud")
     .action(async (envId, options) => {
       if (envId || options.cloud) {
@@ -94,8 +94,8 @@ export function registerApplyCommand(program: Command): void {
         }
       } else {
         // Apply local config
-        console.log(`🏠 Applying local environment from ${options.config}...`);
-        await runApply({ cwd: globalThis.process?.cwd() || "." });
+        console.log(`🏠 Applying local environment from ${options.config ?? "project config"}...`);
+        await runApply({ cwd: process.cwd(), configPath: options.config });
         console.log("✅ Local environment applied successfully!");
       }
     });

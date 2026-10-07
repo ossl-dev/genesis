@@ -16,6 +16,7 @@ import {
 
 export interface RunnerContext {
   cwd: string;
+  configPath?: string;
 }
 
 function createLogger(): Logger {
@@ -54,21 +55,21 @@ function printTable(
 async function prepare(context: RunnerContext) {
   const logger = createLogger();
   logger.debug(`Loading config from ${context.cwd}`);
-  const config = await loadConfig(context.cwd);
+  const config = await loadConfig(context.cwd, context.configPath);
   const instances = collectPluginInstances(config);
   const nodes = await loadPlugins(instances);
   const graph = buildPluginGraph(nodes);
-  return { logger, graph };
+  return { logger, graph, env: { ...process.env, ...config.env } };
 }
 
 export async function runApply(context: RunnerContext): Promise<void> {
-  const { logger, graph } = await prepare(context);
+  const { logger, graph, env } = await prepare(context);
   const taskRegistry = new TaskRegistry(logger);
 
   logger.info(`Applying ${graph.length} plugins`);
   const summaries: ApplySummary[] = await coreRunApply(graph, {
     cwd: context.cwd,
-    env: process.env,
+    env,
     logger,
     taskRegistry,
   });
@@ -78,22 +79,23 @@ export async function runApply(context: RunnerContext): Promise<void> {
     details: summary.details,
   }));
   printTable(rows);
+  if (summaries.some(summary => !summary.ok)) throw new Error("Environment apply failed");
 }
 
 export async function runDoctor(context: RunnerContext): Promise<void> {
-  const { logger, graph } = await prepare(context);
+  const { logger, graph, env } = await prepare(context);
   const taskRegistry = new TaskRegistry(logger);
 
   logger.info("Running diagnostics");
   const detectSummaries: DetectSummary[] = await coreRunDetect(graph, {
     cwd: context.cwd,
-    env: process.env,
+    env,
     logger,
     taskRegistry,
   });
   const validateSummaries: ValidateSummary[] = await coreRunValidate(graph, {
     cwd: context.cwd,
-    env: process.env,
+    env,
     logger,
     taskRegistry,
   });
@@ -104,6 +106,8 @@ export async function runDoctor(context: RunnerContext): Promise<void> {
         ? "ok"
         : detect.status === "missing"
         ? "missing"
+        : validate && !validate.ok
+        ? "error"
         : "unknown";
     const details = validate?.message ?? detect.details;
     return {
@@ -113,16 +117,19 @@ export async function runDoctor(context: RunnerContext): Promise<void> {
     };
   });
   printTable(rows);
+  if (detectSummaries.some(summary => summary.status === "missing") || validateSummaries.some(summary => !summary.ok)) {
+    throw new Error("Environment diagnostics failed");
+  }
 }
 
 export async function runDiff(context: RunnerContext): Promise<void> {
-  const { logger, graph } = await prepare(context);
+  const { logger, graph, env } = await prepare(context);
   const taskRegistry = new TaskRegistry(logger);
 
   logger.info("Computing diff");
   const summaries: DetectSummary[] = await coreRunDiff(graph, {
     cwd: context.cwd,
-    env: process.env,
+    env,
     logger,
     taskRegistry,
   });
@@ -135,13 +142,13 @@ export async function runDiff(context: RunnerContext): Promise<void> {
 }
 
 export async function runValidate(context: RunnerContext): Promise<void> {
-  const { logger, graph } = await prepare(context);
+  const { logger, graph, env } = await prepare(context);
   const taskRegistry = new TaskRegistry(logger);
 
   logger.info("Validating environment");
   const summaries: ValidateSummary[] = await coreRunValidate(graph, {
     cwd: context.cwd,
-    env: process.env,
+    env,
     logger,
     taskRegistry,
   });
@@ -151,4 +158,5 @@ export async function runValidate(context: RunnerContext): Promise<void> {
     details: summary.message,
   }));
   printTable(rows);
+  if (summaries.some(summary => !summary.ok)) throw new Error("Environment validation failed");
 }

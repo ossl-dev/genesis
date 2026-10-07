@@ -138,7 +138,7 @@ describe('loadConfig', () => {
     mockReadFile.mockResolvedValue('tools: [...]; sdks: [...]; languages: [...]');
     mockYamlParse.mockReturnValue({
       tools: [{ type: 'node' }],
-      sdks: [{ type: 'node' }],
+      sdks: [{ type: 'java' }],
       languages: [{ type: 'python' }],
     });
 
@@ -148,7 +148,7 @@ describe('loadConfig', () => {
     expect(config.sdks).toHaveLength(1);
     expect(config.languages).toHaveLength(1);
     expect(config.tools![0].category).toBe('tool');
-    expect(config.sdks![0].id).toBe('node');
+    expect(config.sdks![0].id).toBe('java');
     expect(config.languages![0].category).toBe('language');
   });
 
@@ -252,5 +252,51 @@ describe('loadConfig', () => {
     await expect(loadConfig('/fake/project')).rejects.toThrow(
       "Unknown plugin type 'unknown-plugin' in genesis.config.yaml"
     );
+  });
+});
+
+
+describe('config input boundaries', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockExistsSync.mockImplementation((p: string) => p.endsWith('.yaml'));
+    mockReadFile.mockResolvedValue('');
+  });
+
+  it.each([null, 7, 'string', [], { tools: {} }, { tools: [null] }])('rejects malformed YAML %j with file context', async raw => {
+    mockYamlParse.mockReturnValue(raw);
+    await expect(loadConfig('/fake/project')).rejects.toThrow('/fake/project/genesis.config.yaml:');
+  });
+
+  it('normalizes each plugin entry independently', async () => {
+    mockYamlParse.mockReturnValue({ tools: [
+      { id: 'custom', module: 'custom-plugin', category: 'tool' },
+      { type: 'node', version: '22' },
+    ] });
+    const config = await loadConfig('/fake/project');
+    expect(config.tools?.map(plugin => plugin.id)).toEqual(['custom', 'node']);
+  });
+
+  it('honors an explicit file even when a default config exists', async () => {
+    mockYamlParse.mockReturnValue({ env: { MODE: 'override' } });
+    expect(await loadConfig('/fake/project', 'configs/dev.yml')).toEqual({ env: { MODE: 'override' } });
+    expect(mockReadFile).toHaveBeenCalledWith('/fake/project/configs/dev.yml', 'utf8');
+  });
+
+  it('interpolates nested environment references without executing shell text', async () => {
+    mockYamlParse.mockReturnValue({ tools: [{ type: 'node', version: '${VERSION}' }], env: { LOCATION: '${HOME}/work', LITERAL: '$(echo unsafe)' } });
+    const config = await loadConfig('/fake/project', undefined, { HOME: '/tmp/home', VERSION: '22' });
+    expect(config.tools?.[0].options).toEqual({ version: '22' });
+    expect(config.env).toEqual({ LOCATION: '/tmp/home/work', LITERAL: '$(echo unsafe)' });
+  });
+
+  it('reports the path of an unset environment reference', async () => {
+    mockYamlParse.mockReturnValue({ env: { TOKEN: '${MISSING}' } });
+    await expect(loadConfig('/fake/project', undefined, {})).rejects.toThrow("config.env.TOKEN: environment variable 'MISSING' is not set");
+  });
+
+  it('reports nested validation paths', async () => {
+    mockYamlParse.mockReturnValue({ tools: [{ id: 'node', category: 'tool', module: 42 }] });
+    await expect(loadConfig('/fake/project')).rejects.toThrow('tools.0.module:');
   });
 });

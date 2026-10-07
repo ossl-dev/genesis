@@ -260,3 +260,19 @@ describe('validateConfig', () => {
     }
   });
 });
+
+
+describe('config safety', () => {
+  it('rejects duplicate IDs across sections', () => {
+    const plugin = { id: 'node', module: 'plugin', category: 'tool' };
+    expect(() => validateConfig({ tools: [plugin], languages: [plugin] })).toThrow("Duplicate plugin id 'node'");
+  });
+
+  it('rejects empty plugin IDs and modules', () => {
+    expect(() => validateConfig({ tools: [{ id: ' ', module: '', category: 'tool' }] })).toThrow(ZodError);
+  });
+
+  it('accepts the documented repository path and lifecycle timing', () => {
+    expect(validateConfig({ repositories: [{ url: 'repo', path: './repo', branch: 'main' }], scripts: [{ name: 'start', command: 'echo ready', when: 'before' }] })).toEqual({ repositories: [{ url: 'repo', folder: './repo', branch: 'main' }], scripts: [{ name: 'start', command: 'echo ready', when: 'before' }] });
+  });
+});

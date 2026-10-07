@@ -1,372 +1,64 @@
 # Configuration
 
-Learn how to configure Genesis for your development environment.
+Genesis discovers `genesis.config.ts` first, then `genesis.config.yaml` in the current directory. Select another file with `genesis apply --config ./configs/dev.yaml`; explicit paths accept `.ts`, `.yaml`, or `.yml` and resolve from the current directory.
 
-## Configuration File
+TypeScript configs execute through the host runtime's module loader. Use Bun for TypeScript configs; Node requires a version with TypeScript support or a suitable loader. Only load configs and plugins you trust.
 
-Genesis supports two configuration formats:
-
-### TypeScript Configuration (Recommended)
-
-Create `genesis.config.ts` in your project root:
-
-```typescript
-import { defineConfig } from "@ossl/genesis-core";
-import { node, python } from "@ossl/genesis-plugins";
-
-export default defineConfig({
-  tools: [],
-  languages: [],
-  sdks: [],
-});
-```
-
-**Advantages:**
-- ✅ Full TypeScript type safety
-- ✅ IntelliSense and autocomplete
-- ✅ Programmatic configuration
-- ✅ Import and reuse configs
-
-### YAML Configuration
-
-Create `genesis.yaml` in your project root:
+## YAML
 
 ```yaml
-tools: []
-languages: []
-sdks: []
+tools:
+  - type: node
+    version: "22"
+    use_nvm: true
+languages:
+  - type: python
+    version: "3.11"
+env:
+  NODE_ENV: development
+  WORKSPACE: "${HOME}/projects"
 ```
 
-**Advantages:**
-- ✅ Simple and readable
-- ✅ No build step required
-- ✅ Easy for non-developers
+Built-in types are `node`, `python`, `go`, `java`, `git`, `docker`, and `homebrew`. YAML entries may also use the full plugin instance format for custom modules:
 
-## Configuration Structure
-
-### Top-Level Fields
-
-```typescript
-interface GenesisConfig {
-  tools?: PluginInstance[];      // Development tools (Node.js, etc.)
-  languages?: PluginInstance[];  // Programming languages (Python, etc.)
-  sdks?: PluginInstance[];       // SDKs and frameworks
-}
+```yaml
+tools:
+  - id: team-tool
+    category: tool
+    module: team-genesis-plugin
+    options:
+      version: "1"
 ```
 
-### Plugin Instance
+Both entry formats can appear in the same list. Each plugin ID must be unique across `tools`, `sdks`, and `languages`; duplicate IDs are rejected rather than silently dropping one instance.
 
-Each plugin is configured with its specific options:
-
-```typescript
-import { node, python } from "@ossl/genesis-plugins";
-
-export default defineConfig({
-  tools: [
-    node({
-      version: "20",      // Required
-      use_nvm: true,      // Optional
-    }),
-  ],
-  languages: [
-    python({
-      version: "3.11",    // Required
-    }),
-  ],
-});
-```
-
-## Plugin Categories
-
-### Tools
-
-Development tools and utilities:
-
-```typescript
-import { node } from "@ossl/genesis-plugins";
-
-export default defineConfig({
-  tools: [
-    node({
-      version: "20",
-      use_nvm: true,
-    }),
-  ],
-});
-```
-
-### Languages
-
-Programming language runtimes:
-
-```typescript
-import { python } from "@ossl/genesis-plugins";
-
-export default defineConfig({
-  languages: [
-    python({
-      version: "3.11",
-    }),
-  ],
-});
-```
-
-### SDKs
-
-Software development kits (coming soon):
-
-```typescript
-export default defineConfig({
-  sdks: [
-    // Coming soon: AWS SDK, Google Cloud SDK, etc.
-  ],
-});
-```
-
-## Complete Example
-
-Here's a comprehensive configuration:
+## TypeScript
 
 ```typescript
 import { defineConfig } from "@ossl/genesis-core";
 import { node, python } from "@ossl/genesis-plugins";
 
 export default defineConfig({
-  // Development tools
-  tools: [
-    // Node.js with NVM
-    node({
-      version: "20",
-      use_nvm: true,
-    }),
-  ],
-  
-  // Programming languages
-  languages: [
-    // Python 3.11
-    python({
-      version: "3.11",
-    }),
-  ],
+  tools: [node({ version: "22", use_nvm: true })],
+  languages: [python({ version: "3.11" })],
+  env: { NODE_ENV: "development" },
 });
 ```
 
-## Multiple Versions
+A default export or named `config` export is accepted. `defineConfig` supplies TypeScript types; loading the file performs runtime validation.
 
-Install multiple versions of the same tool:
+## Environment references
 
-```typescript
-import { defineConfig } from "@ossl/genesis-core";
-import { node, python } from "@ossl/genesis-plugins";
+`${NAME}` in any string value is replaced with the invoking process's environment value. Missing variables stop loading and identify the affected field. References are expanded once; shell expressions and fallback syntax such as `${NAME:-value}` are not evaluated.
 
-export default defineConfig({
-  tools: [
-    node({ version: "20", use_nvm: true }),
-    node({ version: "18", use_nvm: true }),
-  ],
-  languages: [
-    python({ version: "3.11" }),
-    python({ version: "3.10" }),
-  ],
-});
-```
+The config's `env` values override inherited environment variables for Genesis plugin commands. They do not persist into your calling shell, and references do not resolve against other entries in the config's `env` section.
 
-## Environment-Specific Configuration
+## Validation
 
-### Using Environment Variables
+All top-level sections are optional. Plugin instances require a nonempty `id`, `module`, and a category: `tool`, `sdk`, `language`, `library`, or `framework`.
 
-```typescript
-import { defineConfig } from "@ossl/genesis-core";
-import { node } from "@ossl/genesis-plugins";
+Repository specs use `url`, `folder` (or YAML `path`), and optional `branch`. Scripts use `name`, `command`, optional `description`, and optional `when: before | after`.
 
-const nodeVersion = process.env.NODE_VERSION || "20";
+Invalid input is reported with the config filename and field path, for example `tools.0.module: Invalid input: expected string, received number`. Unsupported plugin types and duplicate IDs fail before provisioning begins.
 
-export default defineConfig({
-  tools: [
-    node({
-      version: nodeVersion,
-      use_nvm: true,
-    }),
-  ],
-});
-```
-
-### Conditional Configuration
-
-```typescript
-import { defineConfig } from "@ossl/genesis-core";
-import { node, python } from "@ossl/genesis-plugins";
-
-const isDevelopment = process.env.NODE_ENV === "development";
-
-export default defineConfig({
-  tools: [
-    node({ version: "20", use_nvm: true }),
-  ],
-  languages: [
-    // Only install Python in development
-    ...(isDevelopment ? [python({ version: "3.11" })] : []),
-  ],
-});
-```
-
-## Shared Configurations
-
-### Importing Configs
-
-Create reusable configuration modules:
-
-```typescript
-// configs/base.ts
-import { node } from "@ossl/genesis-plugins";
-
-export const baseTools = [
-  node({ version: "20", use_nvm: true }),
-];
-```
-
-```typescript
-// genesis.config.ts
-import { defineConfig } from "@ossl/genesis-core";
-import { python } from "@ossl/genesis-plugins";
-import { baseTools } from "./configs/base";
-
-export default defineConfig({
-  tools: baseTools,
-  languages: [
-    python({ version: "3.11" }),
-  ],
-});
-```
-
-### Extending Configs
-
-```typescript
-// configs/base.config.ts
-import { defineConfig } from "@ossl/genesis-core";
-import { node } from "@ossl/genesis-plugins";
-
-export default defineConfig({
-  tools: [
-    node({ version: "20", use_nvm: true }),
-  ],
-});
-```
-
-```typescript
-// genesis.config.ts
-import { defineConfig } from "@ossl/genesis-core";
-import { python } from "@ossl/genesis-plugins";
-import baseConfig from "./configs/base.config";
-
-export default defineConfig({
-  ...baseConfig,
-  languages: [
-    python({ version: "3.11" }),
-  ],
-});
-```
-
-## Configuration Validation
-
-Genesis automatically validates your configuration:
-
-```typescript
-import { defineConfig } from "@ossl/genesis-core";
-import { node } from "@ossl/genesis-plugins";
-
-export default defineConfig({
-  tools: [
-    node({
-      version: "20",
-      // TypeScript will error on invalid options
-      invalid_option: true,  // ❌ Error!
-    }),
-  ],
-});
-```
-
-## CLI Options
-
-Override configuration via CLI:
-
-```bash
-# Use specific config file
-genesis apply -c custom-config.ts
-
-# Use YAML config
-genesis apply -c genesis.yaml
-
-# Dry run (show what would be installed)
-genesis apply --dry-run
-
-# Verbose output
-genesis apply --verbose
-
-# Specify working directory
-genesis apply --cwd /path/to/project
-```
-
-## Best Practices
-
-### 1. Use TypeScript Configuration
-
-TypeScript provides type safety and better developer experience:
-
-```typescript
-// ✅ Good: Type-safe
-import { defineConfig } from "@ossl/genesis-core";
-import { node } from "@ossl/genesis-plugins";
-
-export default defineConfig({
-  tools: [node({ version: "20", use_nvm: true })],
-});
-```
-
-### 2. Version Control Your Config
-
-Commit your configuration file:
-
-```bash
-git add genesis.config.ts
-git commit -m "Add Genesis configuration"
-```
-
-### 3. Document Plugin Options
-
-Add comments to explain choices:
-
-```typescript
-export default defineConfig({
-  tools: [
-    // Use NVM for easy version switching between projects
-    node({
-      version: "20",  // LTS version for stability
-      use_nvm: true,
-    }),
-  ],
-});
-```
-
-### 4. Keep It Simple
-
-Start with minimal configuration and add as needed:
-
-```typescript
-// ✅ Good: Start simple
-export default defineConfig({
-  tools: [node({ version: "20", use_nvm: true })],
-});
-
-// ❌ Avoid: Over-configuring upfront
-export default defineConfig({
-  tools: [/* 20 different tools */],
-});
-```
-
-## What's Next?
-
-- [Plugin Overview](/plugins/overview) - Learn about available plugins
-- [Task Registry](/guide/task-registry) - Understand task deduplication
-- [Plugin Development](/guide/plugin-development) - Create custom plugins
-
+See [Plugin Overview](/plugins/overview) for plugin options and platform limitations.

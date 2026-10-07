@@ -24,6 +24,12 @@ vi.mock('node:url', () => ({
   pathToFileURL: (filePath: string) => ({ href: filePath }),
 }));
 
+// Virtual fixture paths use POSIX syntax independent of the host OS.
+vi.mock('node:path', async importOriginal => {
+  const actual = await importOriginal<typeof import('node:path')>();
+  return { ...actual, default: actual.posix };
+});
+
 // Static mocks for each TS config test scenario (separate paths to avoid ESM caching issues)
 vi.mock('/fake/ts-default/genesis.config.ts', () => ({
   default: { tools: [], env: { NODE_ENV: 'test' } },

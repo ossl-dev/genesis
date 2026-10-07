@@ -21,6 +21,9 @@ function getLocalEnvs(): EnvironmentEntry[] {
       for (const file of files) {
         try {
           const data = JSON.parse(fs.readFileSync(path.join(cacheDir, file), "utf8"));
+          if (!data || typeof data !== "object" ||
+              (data.id !== undefined && typeof data.id !== "string") ||
+              (data.name !== undefined && typeof data.name !== "string")) continue;
           entries.push({
             id: data.id || file.replace(".json", ""),
             name: data.name || file.replace(".json", ""),
@@ -61,6 +64,7 @@ export function registerListCommand(program: Command): void {
     .option("--local", "List local environments", true)
     .option("--format <format>", "Output format (table|json)", "table")
     .action(async (options) => {
+      if (!["table", "json"].includes(options.format)) throw new Error("Format must be table or json");
       const envs: EnvironmentEntry[] = [];
 
       if (options.local) {
@@ -68,23 +72,8 @@ export function registerListCommand(program: Command): void {
       }
 
       if (options.cloud) {
-        // Try stored token
-        const tokenFile = path.join(os.homedir(), ".genesis", "auth.json");
-        let hasCloudAccess = false;
-        try {
-          if (fs.existsSync(tokenFile)) {
-            hasCloudAccess = true;
-          }
-        } catch { /* ignore */ }
-
-        if (hasCloudAccess) {
-          console.log("🌐 Cloud Environments:");
-          console.log("  (Cloud API not yet available -- showing cached)");
-          // In future: fetch from cloud API using stored token
-        } else {
-          console.log("🌐 Cloud Environments:");
-          console.log("  Run `genesis login` to connect to Genesis Cloud");
-        }
+        const report = options.format === "json" ? console.error : console.log;
+        report("Cloud API is not implemented; listing local metadata only.");
       }
 
       if (options.format === "json") {
@@ -95,7 +84,7 @@ export function registerListCommand(program: Command): void {
       if (envs.length === 0) {
         console.log("No environments found.");
         console.log("  Run `genesis init` to create a new configuration");
-        console.log("  Run `genesis apply` to cache your current environment");
+        console.log("  Automatic environment caching is not implemented");
         return;
       }
 

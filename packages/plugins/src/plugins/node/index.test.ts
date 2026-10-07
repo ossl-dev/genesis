@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import path from 'node:path';
 
 // ── Mock variables ─────────────────────────────────────────────────
 const { mockRunCommand, mockGetPlatform, mockCreatePkgUpdateTask, mockCreatePkgInstallTask, mockCreateCmdCheckTask, mockCreateCustomTask, mockFsPromisesAccess, mockOsHomedir, mockOsArch, mockOsTmpdir } = vi.hoisted(() => ({
@@ -369,7 +370,7 @@ it('installs global packages through NVM after Node is ready', async () => {
   mockRunCommand.mockResolvedValue({ code: 0, stdout: '', stderr: '' });
   const plugin = createPlugin(node({ version: '20', global_packages: ['typescript'] }));
   await plugin.postApply!(makeRuntime({ global_packages: ['typescript'] }));
-  expect(mockRunCommand).toHaveBeenCalledWith('bash', expect.arrayContaining(['genesis-npm', '/home/testuser/.nvm/nvm.sh', '20', 'typescript']), expect.anything());
+  expect(mockRunCommand).toHaveBeenCalledWith('bash', expect.arrayContaining(['genesis-npm', path.join('/home/testuser', '.nvm', 'nvm.sh'), '20', 'typescript']), expect.anything());
 });
 
 

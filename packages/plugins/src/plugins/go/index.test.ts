@@ -200,6 +200,7 @@ describe('go plugin', () => {
   });
 
   describe('registerTasks', () => {
+    beforeEach(() => { mockRunCommand.mockResolvedValue(ok(1, '', 'missing')); });
     it('registers update, curl, and tar tasks on macOS', async () => {
       mockCreatePkgUpdateTask.mockReturnValue({ id: 'update' });
       mockCreatePkgInstallTask.mockReturnValue({ id: 'pkg' });
@@ -226,4 +227,16 @@ describe('go plugin', () => {
       expect(inst.module).toBe('@ossl/genesis-plugins/go');
     });
   });
+});
+
+
+it('skips prerequisite registration when the desired runtime is already present', async () => {
+  vi.clearAllMocks();
+  mockRunCommand.mockReset();
+  mockGetPlatform.mockReturnValue('macos');
+  mockRunCommand.mockResolvedValue(ok(0, 'go version go1.22.0 darwin/arm64'));
+  const instance = go({ version: "1.22.0" });
+  const runtime = makeRuntime({ ...instance.options });
+  await createPlugin(instance).registerTasks!(runtime);
+  expect(mockTaskRegistry.register).not.toHaveBeenCalled();
 });

@@ -112,31 +112,13 @@ describe('git plugin', () => {
 
   // ── apply: package ──
   describe('apply with install_method: package', () => {
-    it('reports success via package manager and configures defaults', async () => {
-      mockRunCommand.mockResolvedValueOnce(ok(1, '', ''));
-      mockRunCommand.mockResolvedValue(ok(0, '', '')); // config commands
-
-      const plugin = createPlugin(git({ install_method: 'package' }) as any);
-      const result = await plugin.apply!(makeRuntime({ install_method: 'package' }));
-      expect(result.ok).toBe(true);
-      expect(result.didChange).toBe(true);
-      expect(result.details).toContain('package manager');
-    });
-
-    it('configures git init.defaultBranch and pull.rebase after install', async () => {
-      mockRunCommand.mockResolvedValueOnce(ok(1, '', ''));
-      mockRunCommand.mockResolvedValue(ok(0, '', ''));
-
-      const plugin = createPlugin(git() as any);
+    it('fails if prerequisites did not make Git available', async () => {
+      mockRunCommand.mockResolvedValueOnce(ok(1, '', 'missing'));
+      const plugin = createPlugin(git());
       const result = await plugin.apply!(makeRuntime());
-      expect(result.ok).toBe(true);
-
-      const configCalls = mockRunCommand.mock.calls.filter(
-        (c: string[]) => c[0] === 'git' && c[1][0] === 'config',
-      );
-      expect(configCalls.length).toBe(2);
-      expect(configCalls[0][1]).toEqual(['config', '--global', 'init.defaultBranch', 'main']);
-      expect(configCalls[1][1]).toEqual(['config', '--global', 'pull.rebase', 'false']);
+      expect(result.ok).toBe(false);
+      expect(result.details).toContain('still unavailable');
+      expect(mockRunCommand).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -284,6 +266,7 @@ describe('git plugin', () => {
 
   // ── registerTasks ──
   describe('registerTasks', () => {
+    beforeEach(() => { mockRunCommand.mockResolvedValue(ok(1, '', 'missing')); });
     it('registers update and git for package method on macOS', async () => {
       mockCreatePkgUpdateTask.mockReturnValue({ id: 'update' });
       mockCreatePkgInstallTask.mockReturnValue({ id: 'git' });
@@ -353,4 +336,16 @@ describe('git plugin', () => {
       expect(inst.options.install_method).toBe('source');
     });
   });
+});
+
+
+it('skips prerequisite registration when the desired runtime is already present', async () => {
+  vi.clearAllMocks();
+  mockRunCommand.mockReset();
+  mockGetPlatform.mockReturnValue('macos');
+  mockRunCommand.mockResolvedValue(ok(0, 'git version 2.43.0'));
+  const instance = git();
+  const runtime = makeRuntime({ ...instance.options });
+  await createPlugin(instance).registerTasks!(runtime);
+  expect(mockTaskRegistry.register).not.toHaveBeenCalled();
 });

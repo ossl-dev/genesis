@@ -28,3 +28,8 @@ export const optionSchemas = {
     global_packages: packages.optional(),
   }).strict().default({ update_packages: true, install_cask: true, add_to_path: true }),
 };
+
+export function matchesVersion(installed: string, requested: string): boolean {
+  const actual = installed.split(".");
+  return requested.split(".").every((component, index) => component === actual[index]);
+}

@@ -222,6 +222,8 @@ export function createPlugin(
         return;
       }
 
+      if ((await this.detect!(runtime)).ok) return;
+
       logger.debug("Registering system tasks for Java installation");
 
       // Register package manager update (will be deduplicated across plugins)

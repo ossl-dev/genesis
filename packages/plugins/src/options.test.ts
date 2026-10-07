@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { optionSchemas } from "./options.js";
+import { optionSchemas, matchesVersion } from "./options.js";
 
 describe("plugin config validation", () => {
   it("applies the same defaults to YAML options as the helper factories", () => {
@@ -17,4 +17,12 @@ describe("plugin config validation", () => {
     expect(() => optionSchemas.go.parse({ version: "1.22" })).toThrow("full version");
     expect(() => optionSchemas.homebrew.parse({ global_packages: ["--force"] })).toThrow();
   });
+});
+
+
+it('matches requested version components rather than string prefixes', () => {
+  expect(matchesVersion('20.11.0', '2')).toBe(false);
+  expect(matchesVersion('3.11.9', '3.1')).toBe(false);
+  expect(matchesVersion('20.11.0', '20')).toBe(true);
+  expect(matchesVersion('3.11.9', '3.11.8')).toBe(false);
 });

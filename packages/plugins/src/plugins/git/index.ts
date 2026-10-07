@@ -1,4 +1,4 @@
-import { optionSchemas } from "../../options.js";
+import { optionSchemas, matchesVersion } from "../../options.js";
 import {
   type GenesisPlugin,
   type GenesisPluginInstance,
@@ -65,7 +65,7 @@ async function detectGit(runtime: PluginRuntime<GitOptions>) {
 
   // If specific version requested, check if it matches
   if (runtime.options.version && runtime.options.version !== "latest") {
-    if (version.startsWith(runtime.options.version)) {
+    if (matchesVersion(version, runtime.options.version)) {
       return {
         ok: true,
         details: `Detected Git ${version}`,
@@ -297,6 +297,8 @@ export function createPlugin(
         return;
       }
 
+      if ((await this.detect!(runtime)).ok) return;
+
       logger.debug("Registering system tasks for Git installation");
 
       if (install_method === "package") {
@@ -397,12 +399,7 @@ export function createPlugin(
       switch (install_method) {
         case "package":
           logger.info("Installing Git via package manager...");
-          // Package installation is handled by task registry
-          installResult = {
-            ok: true,
-            details: "Git installed via package manager",
-          };
-          break;
+          return { ok: false, didChange: false, details: `Git is still unavailable after package installation: ${detectResult.details}` };
 
         case "source":
           installResult = await installGitFromSource(runtime);

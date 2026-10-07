@@ -1,4 +1,4 @@
-import { optionSchemas } from "../../options.js";
+import { optionSchemas, matchesVersion } from "../../options.js";
 import {
   type GenesisPlugin,
   type GenesisPluginInstance,
@@ -62,7 +62,7 @@ async function detectGo(runtime: PluginRuntime<GoOptions>) {
   }
 
   // Check if the installed version matches the requested version
-  if (version.startsWith(runtime.options.version)) {
+  if (matchesVersion(version, runtime.options.version)) {
     return {
       ok: true,
       details: `Detected Go ${version}`,
@@ -207,6 +207,8 @@ export function createPlugin(
       if (platform === "windows") {
         return;
       }
+
+      if ((await this.detect!(runtime)).ok) return;
 
       logger.debug("Registering system tasks for Go installation");
 

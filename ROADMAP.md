@@ -183,8 +183,17 @@ Make Genesis feel like a mature tool.
 
 Not triaged into phases. Fix anytime.
 
+- [x] Skip system prerequisite tasks when the requested runtime is already installed.
+- [x] Compare version components instead of accepting misleading string prefixes.
+- [x] Make installed NVM Node available to subsequent commands and install global packages after runtime setup.
+- [x] Detect modern Docker Compose, use Debian repository URLs, and check daemon availability without pulling a test image.
+- [ ] Resolve Java archive releases and build numbers; stage extraction without selecting unrelated JDK directories.
+- [ ] Replace Go installations through staged extraction with recovery on failure.
+- [ ] Enforce version selection in Git source/binary and Docker installation paths.
+- [ ] Propagate Homebrew update/upgrade failures and bootstrap brew before shared system tasks.
+
 - [ ] **Homebrew on Apple Silicon**: install path is `/opt/homebrew`, not `/usr/local`. Plugin assumes the latter for cask installs.
-- [ ] **Docker Desktop on macOS**: plugin offers Colima then Docker Desktop as alternatives, but Docker Desktop requires user to accept license interactively — breaks non-interactive apply.
+- [x] **Docker Desktop on macOS**: retain the downloaded DMG and report manual completion instead of claiming a successful install.
 - [ ] **Go arch detection**: download URL hardcodes `amd64`. On Apple Silicon it downloads the wrong binary.
 - [ ] **Node standalone install**: `use_nvm: false` prints "standalone installation not yet supported" and skips. Should at least try fnm or a direct download.
 - [x] **Parallel execution with one core**: `ParallelExecutionEngine` doesn't check available CPUs — could oversubscribe a low-resource machine.

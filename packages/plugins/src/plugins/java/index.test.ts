@@ -218,6 +218,7 @@ describe('java plugin', () => {
   });
 
   describe('registerTasks', () => {
+    beforeEach(() => { mockRunCommand.mockResolvedValue(ok(1, '', 'missing')); });
     it('registers update, curl, and tar on macOS/Linux', async () => {
       mockCreatePkgUpdateTask.mockReturnValue({ id: 'update' });
       mockCreatePkgInstallTask.mockReturnValue({ id: 'pkg' });
@@ -250,4 +251,16 @@ describe('java plugin', () => {
       expect(inst.options.distribution).toBe('oracle');
     });
   });
+});
+
+
+it('skips prerequisite registration when the desired runtime is already present', async () => {
+  vi.clearAllMocks();
+  mockRunCommand.mockReset();
+  mockGetPlatform.mockReturnValue('macos');
+  mockRunCommand.mockResolvedValue(ok(0, 'openjdk version "17.0.9"'));
+  const instance = java({ version: "17" });
+  const runtime = makeRuntime({ ...instance.options });
+  await createPlugin(instance).registerTasks!(runtime);
+  expect(mockTaskRegistry.register).not.toHaveBeenCalled();
 });

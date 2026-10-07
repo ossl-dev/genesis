@@ -1,4 +1,4 @@
-import { optionSchemas } from "../../options.js";
+import { optionSchemas, matchesVersion } from "../../options.js";
 import {
   type GenesisPlugin,
   type GenesisPluginInstance,
@@ -75,7 +75,7 @@ async function detectDocker(runtime: PluginRuntime<DockerOptions>) {
 
   // If specific version requested, check if it matches
   if (runtime.options.version && runtime.options.version !== "latest") {
-    if (version.startsWith(runtime.options.version)) {
+    if (matchesVersion(version, runtime.options.version)) {
       return {
         ok: true,
         details: `Detected Docker ${version}`,
@@ -97,10 +97,14 @@ async function detectDocker(runtime: PluginRuntime<DockerOptions>) {
  * Check if Docker Compose is available
  */
 async function detectDockerCompose(runtime: PluginRuntime<DockerOptions>) {
-  const result = await runCommand("docker-compose", ["--version"], {
-    cwd: runtime.context.cwd,
-    env: runtime.context.env,
+  let result = await runCommand("docker", ["compose", "version"], {
+    cwd: runtime.context.cwd, env: runtime.context.env,
   });
+  if (result.code !== 0) {
+    result = await runCommand("docker-compose", ["--version"], {
+      cwd: runtime.context.cwd, env: runtime.context.env,
+    });
+  }
 
   if (result.code !== 0) {
     return {
@@ -142,6 +146,7 @@ async function installDockerLinux(
     const isCentOS = osRelease.includes("centos") || osRelease.includes("rhel");
 
     if (isUbuntu || isDebian) {
+      const distro = isUbuntu ? "ubuntu" : "debian";
       // Ubuntu/Debian installation
       logger.debug("Installing Docker on Ubuntu/Debian");
 
@@ -151,10 +156,10 @@ async function installDockerLinux(
         "sudo apt-get install -y ca-certificates curl gnupg",
         // Add Docker's official GPG key
         "sudo install -m 0755 -d /etc/apt/keyrings",
-        "curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg",
+        `curl -fsSL https://download.docker.com/linux/${distro}/gpg | sudo gpg --dearmor --yes -o /etc/apt/keyrings/docker.gpg`,
         "sudo chmod a+r /etc/apt/keyrings/docker.gpg",
         // Add Docker repository
-        'echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null',
+        `echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/${distro} $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null`,
         // Install Docker Engine
         "sudo apt-get update",
         "sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin",
@@ -163,13 +168,9 @@ async function installDockerLinux(
       ];
 
       for (const cmd of commands) {
-        const needsShell = cmd.includes("|") || cmd.includes(">");
-        const result = needsShell
-          ? await runCommand("bash", ["-c", cmd])
-          : await runCommand(...(() => {
-              const [command, ...args] = cmd.split(" ");
-              return [command, args] as [string, string[]];
-            })());
+        const result = await runCommand("bash", ["-c", `set -o pipefail; ${cmd}`], {
+          cwd: runtime.context.cwd, env: runtime.context.env,
+        });
 
         if (result.code !== 0 && !cmd.includes("usermod")) {
           // usermod might fail if user is already in group, that's ok
@@ -196,8 +197,9 @@ async function installDockerLinux(
       ];
 
       for (const cmd of commands) {
-        const [command, ...args] = cmd.split(" ");
-        const result = await runCommand(command, args);
+        const result = await runCommand("bash", ["-c", `set -o pipefail; ${cmd}`], {
+          cwd: runtime.context.cwd, env: runtime.context.env,
+        });
 
         if (result.code !== 0 && !cmd.includes("usermod")) {
           throw new Error(`Failed to execute ${cmd}: ${result.stderr}`);
@@ -249,7 +251,7 @@ async function installDockerMacOS(
 
       logger.debug(`Downloading Docker Desktop from ${downloadUrl}`);
       const downloadResult = await runCommand("curl", [
-        "-L",
+        "-fL",
         "-o",
         dmgPath,
         downloadUrl,
@@ -270,12 +272,9 @@ async function installDockerMacOS(
       logger.info("3. Launch Docker from Applications");
       logger.info("4. Follow the setup wizard");
 
-      // Clean up
-      await fs.promises.unlink(dmgPath);
-
       return {
-        ok: true,
-        details: "Docker Desktop downloaded. Manual installation required.",
+        ok: false,
+        details: `Docker Desktop downloaded to ${dmgPath}. Complete installation and license acceptance manually, then rerun Genesis.`,
       };
     } catch (error) {
       logger.error(`Failed to download Docker Desktop: ${error}`);
@@ -293,8 +292,9 @@ async function installDockerMacOS(
       const commands = ["brew install colima", "colima start"];
 
       for (const cmd of commands) {
-        const [command, ...args] = cmd.split(" ");
-        const result = await runCommand(command, args);
+        const result = await runCommand("bash", ["-c", `set -o pipefail; ${cmd}`], {
+          cwd: runtime.context.cwd, env: runtime.context.env,
+        });
 
         if (result.code !== 0) {
           throw new Error(`Failed to execute ${cmd}: ${result.stderr}`);
@@ -396,9 +396,11 @@ export function createPlugin(
       const platform = getPlatform();
 
       // Skip task registration for Windows (manual installation)
-      if (platform === "windows") {
+      if (platform === "windows" || (platform === "macos" && runtime.options.install_desktop)) {
         return;
       }
+
+      if ((await this.detect!(runtime)).ok) return;
 
       logger.debug("Registering system tasks for Docker installation");
 
@@ -418,6 +420,10 @@ export function createPlugin(
             runtime.context.env,
           );
           taskRegistry.register(brewTask);
+          taskRegistry.register(createPackageInstallTask("docker", runtime.context.cwd, runtime.context.env));
+          if (runtime.options.include_compose) {
+            taskRegistry.register(createPackageInstallTask("docker-compose", runtime.context.cwd, runtime.context.env));
+          }
         }
       } else {
         // Linux needs various packages
@@ -485,7 +491,7 @@ export function createPlugin(
       logger.info("Testing Docker installation...");
 
       try {
-        const testResult = await runCommand("docker", ["run", "hello-world"], {
+        const testResult = await runCommand("docker", ["info"], {
           cwd: runtime.context.cwd,
           env: runtime.context.env,
         });
@@ -495,9 +501,10 @@ export function createPlugin(
         } else {
           logger.warn("Docker installation completed but test failed");
           logger.debug(`Test error: ${testResult.stderr}`);
+          return { ok: false, didChange: true, details: `Docker installed but daemon is unavailable: ${testResult.stderr}` };
         }
       } catch (error) {
-        logger.warn(`Could not test Docker installation: ${error}`);
+        return { ok: false, didChange: true, details: `Could not verify Docker installation: ${error}` };
       }
 
       return {

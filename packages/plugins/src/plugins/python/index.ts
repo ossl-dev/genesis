@@ -1,4 +1,4 @@
-import { optionSchemas } from "../../options.js";
+import { optionSchemas, matchesVersion } from "../../options.js";
 import {
   type GenesisPlugin,
   type GenesisPluginInstance,
@@ -53,13 +53,7 @@ async function detectPython(runtime: PluginRuntime<PythonOptions>) {
     };
   }
 
-  const requestedMajorMinor = runtime.options.version
-    .split(".")
-    .slice(0, 2)
-    .join(".");
-  const installedMajorMinor = version.split(".").slice(0, 2).join(".");
-
-  if (installedMajorMinor === requestedMajorMinor) {
+  if (matchesVersion(version, runtime.options.version)) {
     return {
       ok: true,
       details: `Detected Python ${version}`,
@@ -91,6 +85,8 @@ export function createPlugin(
         return;
       }
 
+      if ((await this.detect!(runtime)).ok) return;
+
       logger.debug("Registering system tasks for Python installation");
 
       // Register package manager update (will be deduplicated across plugins)
@@ -103,7 +99,7 @@ export function createPlugin(
       // Determine package name based on platform
       let packageName: string;
       if (platform === "macos") {
-        packageName = `python@${runtime.options.version.split(".")[0]}`;
+        packageName = `python@${runtime.options.version.split(".").slice(0, 2).join(".")}`;
       } else {
         // Linux
         packageName = `python${runtime.options.version
@@ -162,9 +158,9 @@ export function createPlugin(
       );
 
       return {
-        ok: true,
-        didChange: true,
-        details: `Python ${runtime.options.version} installation completed`,
+        ok: false,
+        didChange: false,
+        details: `Python ${runtime.options.version} is still unavailable after package installation: ${detectResult.details}`,
       };
     },
     async validate(runtime) {

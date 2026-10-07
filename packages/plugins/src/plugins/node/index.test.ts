@@ -66,6 +66,7 @@ describe('node plugin', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetPlatform.mockReturnValue('macos');
+    mockContext.env = {};
   });
 
   // ── detect ──
@@ -147,6 +148,7 @@ describe('node plugin', () => {
       // nvm alias default succeeds
       mockRunCommand.mockResolvedValueOnce(ok(0, '', ''));
 
+      mockRunCommand.mockResolvedValueOnce(ok(0, '/home/testuser/.nvm/versions/node/v20.11.0/bin/node'));
       const plugin = createPlugin(node({ version: '20' }) as any);
       const result = await plugin.apply!(makeRuntime());
 
@@ -163,6 +165,7 @@ describe('node plugin', () => {
       mockRunCommand.mockResolvedValueOnce(ok(0, '', ''));
       mockRunCommand.mockResolvedValueOnce(ok(0, '', ''));
 
+      mockRunCommand.mockResolvedValueOnce(ok(0, '/home/testuser/.nvm/versions/node/v20.11.0/bin/node'));
       const plugin = createPlugin(node({ version: '20' }) as any);
       const result = await plugin.apply!(makeRuntime());
 
@@ -211,6 +214,7 @@ describe('node plugin', () => {
       mockRunCommand.mockResolvedValueOnce(ok(0, '', ''));
       mockRunCommand.mockResolvedValueOnce(ok(0, '', ''));
 
+      mockRunCommand.mockResolvedValueOnce(ok(0, '/home/testuser/.nvm/versions/node/v20.11.0/bin/node'));
       const plugin = createPlugin(node({ version: '20' }) as any);
       const result = await plugin.apply!(makeRuntime());
 
@@ -282,6 +286,7 @@ describe('node plugin', () => {
 
   // ── registerTasks ──
   describe('registerTasks', () => {
+    beforeEach(() => { mockRunCommand.mockResolvedValue(ok(1, '', 'missing')); });
     it('registers update and curl tasks on macOS with use_nvm', async () => {
       const updateTask = { id: 'macos:package-manager:brew-update', description: 'update' };
       const curlTask = { id: 'macos:package-manager:brew-install:curl', description: 'curl' };
@@ -360,8 +365,21 @@ describe('node plugin', () => {
 
 
 it('installs global packages through NVM after Node is ready', async () => {
+  mockFsPromisesAccess.mockResolvedValue(undefined);
   mockRunCommand.mockResolvedValue({ code: 0, stdout: '', stderr: '' });
   const plugin = createPlugin(node({ version: '20', global_packages: ['typescript'] }));
   await plugin.postApply!(makeRuntime({ global_packages: ['typescript'] }));
   expect(mockRunCommand).toHaveBeenCalledWith('bash', expect.arrayContaining(['genesis-npm', '/home/testuser/.nvm/nvm.sh', '20', 'typescript']), expect.anything());
+});
+
+
+it('skips prerequisite registration when the desired runtime is already present', async () => {
+  vi.clearAllMocks();
+  mockRunCommand.mockReset();
+  mockGetPlatform.mockReturnValue('macos');
+  mockRunCommand.mockResolvedValue(ok(0, 'v20.11.0'));
+  const instance = node({ version: "20" });
+  const runtime = makeRuntime({ ...instance.options });
+  await createPlugin(instance).registerTasks!(runtime);
+  expect(mockTaskRegistry.register).not.toHaveBeenCalled();
 });

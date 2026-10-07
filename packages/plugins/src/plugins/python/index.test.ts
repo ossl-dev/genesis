@@ -86,11 +86,11 @@ describe('python plugin', () => {
       expect(result.ok).toBe(true);
     });
 
-    it('matches different patch versions within same minor', async () => {
+    it('rejects a mismatched explicitly requested patch version', async () => {
       mockRunCommand.mockResolvedValueOnce(ok(0, 'Python 3.12.0\n'));
       const plugin = createPlugin(python({ version: '3.12.5' }) as any);
-      const result = await plugin.detect!(makeRuntime());
-      expect(result.ok).toBe(true);
+      const result = await plugin.detect!(makeRuntime({ version: '3.12.5' }));
+      expect(result.ok).toBe(false);
     });
   });
 
@@ -107,9 +107,9 @@ describe('python plugin', () => {
       mockRunCommand.mockResolvedValueOnce(ok(1, '', ''));
       const plugin = createPlugin(python({ version: '3.12' }) as any);
       const result = await plugin.apply!(makeRuntime());
-      expect(result.ok).toBe(true);
-      expect(result.didChange).toBe(true);
-      expect(result.details).toContain('installation completed');
+      expect(result.ok).toBe(false);
+      expect(result.didChange).toBe(false);
+      expect(result.details).toContain('still unavailable');
     });
 
     it('on Linux reports installation via system package manager', async () => {
@@ -117,8 +117,8 @@ describe('python plugin', () => {
       mockRunCommand.mockResolvedValueOnce(ok(1, '', ''));
       const plugin = createPlugin(python({ version: '3.12' }) as any);
       const result = await plugin.apply!(makeRuntime());
-      expect(result.ok).toBe(true);
-      expect(result.didChange).toBe(true);
+      expect(result.ok).toBe(false);
+      expect(result.didChange).toBe(false);
     });
 
     it('on Windows prints manual install guide', async () => {
@@ -149,12 +149,13 @@ describe('python plugin', () => {
   });
 
   describe('registerTasks', () => {
+    beforeEach(() => { mockRunCommand.mockResolvedValue(ok(1, '', 'missing')); });
     it('registers update and python@X tasks on macOS', async () => {
       mockCreatePkgUpdateTask.mockReturnValue({ id: 'update' });
-      mockCreatePkgInstallTask.mockReturnValue({ id: 'python@3' });
+      mockCreatePkgInstallTask.mockReturnValue({ id: 'python@3.12' });
       const plugin = createPlugin(python({ version: '3.12' }) as any);
       await plugin.registerTasks!(makeRuntime());
-      expect(mockCreatePkgInstallTask).toHaveBeenCalledWith('python@3', '/test', {});
+      expect(mockCreatePkgInstallTask).toHaveBeenCalledWith('python@3.12', '/test', {});
       expect(mockTaskRegistry.register).toHaveBeenCalledTimes(2);
     });
 
@@ -185,4 +186,16 @@ describe('python plugin', () => {
       expect(inst.options.version).toBe('3.12');
     });
   });
+});
+
+
+it('skips prerequisite registration when the desired runtime is already present', async () => {
+  vi.clearAllMocks();
+  mockRunCommand.mockReset();
+  mockGetPlatform.mockReturnValue('macos');
+  mockRunCommand.mockResolvedValue(ok(0, 'Python 3.12.3'));
+  const instance = python({ version: "3.12" });
+  const runtime = makeRuntime({ ...instance.options });
+  await createPlugin(instance).registerTasks!(runtime);
+  expect(mockTaskRegistry.register).not.toHaveBeenCalled();
 });

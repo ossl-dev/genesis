@@ -1,4 +1,4 @@
-import { optionSchemas } from "../../options.js";
+import { optionSchemas, matchesVersion } from "../../options.js";
 import {
   type GenesisPlugin,
   type GenesisPluginInstance,
@@ -185,6 +185,14 @@ async function installNodeViaNvm(
     logger.info(`Node.js ${version} set as default`);
   }
 
+  const resolved = await runCommand("bash", ["-c", 'source "$1" && nvm which "$2"', "genesis-nvm", nvmScript, version], {
+    cwd: runtime.context.cwd, env: runtime.context.env,
+  });
+  const executable = resolved.stdout.trim();
+  if (resolved.code !== 0 || !path.isAbsolute(executable)) {
+    return { ok: false, details: `Node.js installed but its executable could not be resolved: ${resolved.stderr}` };
+  }
+  runtime.context.env.PATH = `${path.dirname(executable)}${path.delimiter}${runtime.context.env.PATH ?? process.env.PATH ?? ""}`;
   return {
     ok: true,
     details: `Node.js ${version} installed via NVM`,
@@ -237,7 +245,7 @@ async function installGlobalNpmPackages(
 
   logger.info(`Installing global npm packages: ${packages.join(", ")}`);
 
-  const result = runtime.options.use_nvm && getPlatform() !== "windows"
+  const result = runtime.options.use_nvm && getPlatform() !== "windows" && await isNvmInstalled(runtime)
     ? await runCommand("bash", ["-c", 'source "$1" && nvm use "$2" && shift 2 && npm install -g -- "$@"', "genesis-npm", path.join(getNvmDir(runtime.context.env), "nvm.sh"), runtime.options.version, ...packages], {
       cwd: runtime.context.cwd, env: runtime.context.env,
     })
@@ -277,7 +285,7 @@ async function detectNode(runtime: PluginRuntime<NodeOptions>) {
       details: "Node version could not be determined",
     };
   }
-  if (version.startsWith(runtime.options.version)) {
+  if (matchesVersion(version, runtime.options.version)) {
     return {
       ok: true,
       details: `Detected Node ${version}`,
@@ -311,7 +319,9 @@ export function createPlugin(
 
       // If using NVM, we need curl to download the NVM install script
       if (use_nvm) {
-        logger.debug(
+        if ((await this.detect!(runtime)).ok) return;
+
+      logger.debug(
           "Registering system tasks for NVM installation prerequisites",
         );
 

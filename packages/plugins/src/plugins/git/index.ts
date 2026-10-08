@@ -48,7 +48,6 @@ function unsupported(runtime: PluginRuntime<GitOptions>): string | undefined {
   if (runtime.options.install_method === "binary" && platform !== "windows") return "Git publishes no standalone Unix binaries; use package or source installation";
   if (runtime.options.install_method === "source" && platform === "windows") return "Git source builds on Windows are unsupported; use install_method: binary for MinGit";
   if (runtime.options.install_method === "package" && platform === "windows") return "Use install_method: binary for automatic MinGit installation on Windows, or preinstall Git";
-  if (runtime.options.install_method === "package" && runtime.options.install_dir) return "install_dir requires source or binary installation";
 }
 
 export function createPlugin(instance: GenesisPluginInstance<GitOptions>): GenesisPlugin<GitOptions> {

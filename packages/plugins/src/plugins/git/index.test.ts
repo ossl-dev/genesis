@@ -118,3 +118,8 @@ it("rejects Windows source builds with an actionable alternative", async () => {
   const { plugin, runtime } = setup({ install_method: "source" });
   await expect(plugin.prepare!(runtime)).rejects.toThrow("MinGit");
 });
+
+it("rejects managed directories in system package mode before detecting the host", () => {
+  expect(() => setup({ install_dir: path.resolve("managed git") })).toThrow("install_dir requires source or binary");
+  expect(mocks.run).not.toHaveBeenCalled();
+});

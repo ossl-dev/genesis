@@ -28,7 +28,7 @@ export const optionSchemas = {
     version: z.union([version, z.literal("latest")]).default("latest"),
     install_method: z.enum(["package", "source", "binary"]).default("package"),
     install_dir: installDirectory,
-  }).strict().default({ version: "latest", install_method: "package" }),
+  }).strict().refine(options => !options.install_dir || options.install_method !== "package", { path: ["install_dir"], message: "install_dir requires source or binary installation" }).default({ version: "latest", install_method: "package" }),
   docker: z.object({
     version: z.union([version, z.literal("latest")]).default("latest"),
     include_compose: z.boolean().default(true),

@@ -29,9 +29,17 @@ async function checkJava(runtime: PluginRuntime<JavaOptions>, executable: string
   const output = result.stderr || result.stdout;
   const version = output.match(/version "(\d+(?:\.\d+)*(?:_\d+)?)"/)?.[1] ?? output.match(/build (\d+(?:\.\d+)*(?:_\d+)?)/)?.[1];
   if (!version) return { ok: false, details: "Java version could not be determined" };
-  return matchesVersion(normalizeJavaVersion(version), normalizeJavaVersion(runtime.options.version))
-    ? { ok: true, details: `Detected Java ${version}` }
-    : { ok: false, details: `Detected Java ${version} but Java ${runtime.options.version} is requested` };
+  if (!matchesVersion(normalizeJavaVersion(version), normalizeJavaVersion(runtime.options.version))) {
+    return { ok: false, details: `Detected Java ${version} but Java ${runtime.options.version} is requested` };
+  }
+  const compiler = executable === "java" ? "javac" : path.join(path.dirname(executable), getPlatform() === "windows" ? "javac.exe" : "javac");
+  const compiled = await runCommand(compiler, ["-version"], { cwd: runtime.context.cwd, env: runtime.context.env });
+  const compilerVersion = (compiled.stdout || compiled.stderr).trim().match(/^javac (\d+(?:\.\d+)*(?:_\d+)?)/)?.[1];
+  if (compiled.code !== 0 || !compilerVersion) return { ok: false, details: "A Java JDK is required; javac is unavailable or unrecognized" };
+  if (!matchesVersion(normalizeJavaVersion(compilerVersion), normalizeJavaVersion(runtime.options.version))) {
+    return { ok: false, details: `Detected javac ${compilerVersion} but Java ${runtime.options.version} is requested` };
+  }
+  return { ok: true, details: `Detected Java ${version} and javac ${compilerVersion}` };
 }
 
 function exposeJava(runtime: PluginRuntime<JavaOptions>, directory: string): void {
@@ -63,7 +71,7 @@ export function createPlugin(instance: GenesisPluginInstance<JavaOptions>): Gene
         const destination = javaDirectory(runtime);
         const release = await javaRelease(runtime.options.version, platform);
         await installArchive({
-          release, destination, context: runtime.context,
+          release, destination, executable: path.join("bin", platform === "windows" ? "java.exe" : "java"), context: runtime.context,
           async select(root) {
             const directory = await singleDirectory(root);
             return platform === "macos" ? path.join(directory, "Contents", "Home") : directory;

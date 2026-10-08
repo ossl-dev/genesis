@@ -16,7 +16,7 @@ beforeEach(() => {
   vi.resetAllMocks();
   mocks.platform.mockReturnValue("linux");
   mocks.exists.mockReturnValue(false);
-  mocks.run.mockResolvedValue(success);
+  mocks.run.mockImplementation(async command => command.endsWith('javac') || command.endsWith('javac.exe') ? { code: 0, stdout: 'javac 17.0.9', stderr: '' } : success);
   mocks.release.mockResolvedValue({ url: "https://example.com/jdk", sha256: "a".repeat(64), format: "tar.gz" });
 });
 
@@ -27,12 +27,12 @@ describe("Java", () => {
     expect(mocks.install).not.toHaveBeenCalled();
   });
   it.each(['1.8', '8'])("recognizes legacy Java 8 for %s", async version => {
-    mocks.run.mockResolvedValue({ ...success, stderr: 'java version "1.8.0_202"' });
+    mocks.run.mockImplementation(async command => command.endsWith('javac') ? { code: 0, stdout: 'javac 1.8.0_202', stderr: '' } : { ...success, stderr: 'java version "1.8.0_202"' });
     const rt = runtime(version);
     expect((await createPlugin(rt.instance).detect!(rt)).ok).toBe(true);
   });
   it("recognizes versions with no minor/patch", async () => {
-    mocks.run.mockResolvedValue({ ...success, stderr: 'openjdk version "17"' });
+    mocks.run.mockImplementation(async command => command.endsWith('javac') ? { code: 0, stdout: 'javac 17', stderr: '' } : { ...success, stderr: 'openjdk version "17"' });
     const rt = runtime();
     expect((await createPlugin(rt.instance).detect!(rt)).ok).toBe(true);
   });
@@ -71,4 +71,17 @@ describe("Java", () => {
     expect((await createPlugin(rt.instance).detect!(rt)).ok).toBe(true);
     expect(rt.context.env.JAVA_HOME).toBe(rt.options.install_dir);
   });
+});
+
+
+it('rejects a JRE without its compiler', async () => {
+  mocks.run.mockResolvedValueOnce(success).mockResolvedValueOnce({ code: 1, stdout: '', stderr: 'missing javac' });
+  const rt = runtime();
+  expect(await createPlugin(rt.instance).detect!(rt)).toMatchObject({ ok: false, details: expect.stringContaining('JDK is required') });
+});
+
+it('rejects a compiler that does not match the requested patch', async () => {
+  mocks.run.mockResolvedValueOnce(success).mockResolvedValueOnce({ code: 0, stdout: 'javac 17.0.8', stderr: '' });
+  const rt = runtime('17.0.9');
+  expect(await createPlugin(rt.instance).validate!(rt)).toMatchObject({ ok: false, message: expect.stringContaining('javac 17.0.8') });
 });

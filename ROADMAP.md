@@ -201,6 +201,7 @@ Not triaged into phases. Fix anytime.
 - [x] Make installed NVM Node available to subsequent commands and install global packages after runtime setup.
 - [x] Detect modern Docker Compose, use Debian repository URLs, and check daemon availability without pulling a test image.
 - [x] Resolve Java archive releases and build numbers; stage extraction without selecting unrelated JDK directories.
+- [x] Require both Java and javac to match the requested version; a JRE alone does not satisfy the JDK plugin.
 - [x] Replace Go installations through staged extraction with recovery on failure.
 - [ ] Enforce version selection in Git source/binary and Docker installation paths.
 - [x] Propagate Homebrew update/upgrade failures and bootstrap brew before shared system tasks.

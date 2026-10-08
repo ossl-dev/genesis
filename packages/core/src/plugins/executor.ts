@@ -100,6 +100,9 @@ export async function runApplyPrerequisites(
   context: GenesisPluginContext,
 ): Promise<void> {
   for (const node of nodes) {
+    await node.plugin.prepare?.({ instance: node.instance, options: node.instance.options, context });
+  }
+  for (const node of nodes) {
     await node.plugin.registerTasks?.({ instance: node.instance, options: node.instance.options, context });
   }
 

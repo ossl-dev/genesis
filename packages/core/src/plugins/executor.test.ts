@@ -476,3 +476,22 @@ describe('runDiff', () => {
     ]);
   });
 });
+
+
+it('prepares all plugins before registering shared prerequisites', async () => {
+  const order: string[] = [];
+  await runApply([
+    mockNode('consumer', { registerTasks: async () => { order.push('register'); } }),
+    mockNode('bootstrap', { prepare: async () => { order.push('prepare'); } }),
+  ], mockContext());
+  expect(order).toEqual(['prepare', 'register']);
+});
+
+it('stops before registering tasks when preparation fails', async () => {
+  const registerTasks = vi.fn();
+  await expect(runApply([
+    mockNode('consumer', { registerTasks }),
+    mockNode('bootstrap', { prepare: async () => { throw new Error('bootstrap failed'); } }),
+  ], mockContext())).rejects.toThrow('bootstrap failed');
+  expect(registerTasks).not.toHaveBeenCalled();
+});

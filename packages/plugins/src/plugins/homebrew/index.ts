@@ -8,7 +8,6 @@ import {
 } from "@ossl/genesis-core";
 import os from "node:os";
 import path from "node:path";
-import fs from "node:fs";
 
 export interface HomebrewOptions {
   update_packages?: boolean;
@@ -126,6 +125,7 @@ async function installHomebrew(
 ): Promise<{ ok: boolean; details: string }> {
   const { logger } = runtime.context;
   const arch = os.arch();
+  if (arch !== "x64" && arch !== "arm64") return { ok: false, details: `Unsupported Homebrew architecture: ${arch}` };
 
   logger.info(`Installing Homebrew for ${arch}...`);
 
@@ -213,7 +213,7 @@ async function updateHomebrew(
     });
 
     if (updateResult.code !== 0) {
-      logger.warn("Failed to update Homebrew, continuing...");
+      throw new Error(updateResult.stderr || "brew update failed");
     }
 
     // Upgrade installed packages if requested
@@ -226,7 +226,7 @@ async function updateHomebrew(
       });
 
       if (upgradeResult.code !== 0) {
-        logger.warn("Failed to upgrade packages, continuing...");
+        throw new Error(upgradeResult.stderr || "brew upgrade failed");
       }
 
       // Upgrade casks if requested
@@ -243,7 +243,7 @@ async function updateHomebrew(
         );
 
         if (caskUpgradeResult.code !== 0) {
-          logger.warn("Failed to upgrade casks, continuing...");
+          throw new Error(caskUpgradeResult.stderr || "brew upgrade --cask failed");
         }
       }
     }
@@ -297,6 +297,13 @@ export function createPlugin(
     id: instance.id,
     category: instance.category,
     parseOptions: options => optionSchemas.homebrew.parse(options),
+    async prepare(runtime) {
+      if (getPlatform() !== "macos" || (await detectHomebrew(runtime)).ok) return;
+      const result = await installHomebrew(runtime);
+      if (!result.ok) throw new Error(result.details);
+      const detected = await detectHomebrew(runtime);
+      if (!detected.ok) throw new Error(`Homebrew installation failed verification: ${detected.details}`);
+    },
     async detect(runtime) {
       return detectHomebrew(runtime);
     },
@@ -329,11 +336,9 @@ export function createPlugin(
         const updateResult = await updateHomebrew(runtime);
 
         return {
-          ok: true,
-          didChange: updateResult.ok,
-          details: updateResult.ok
-            ? "Homebrew updated successfully"
-            : detectResult.details,
+          ok: updateResult.ok,
+          didChange: true,
+          details: updateResult.details,
         };
       }
 
@@ -351,37 +356,10 @@ export function createPlugin(
         };
       }
 
-      // Test Homebrew installation
-      logger.info("Testing Homebrew installation...");
-
-      try {
-        const testResult = await runCommand("brew", ["--version"], {
-          cwd: runtime.context.cwd,
-          env: runtime.context.env,
-        });
-
-        if (testResult.code === 0) {
-          const version = parseHomebrewVersion(
-            testResult.stdout || testResult.stderr,
-          );
-          logger.info(`Homebrew ${version} verified successfully`);
-        } else {
-          logger.warn("Homebrew installation completed but test failed");
-        }
-      } catch (error) {
-        logger.warn(`Could not test Homebrew installation: ${error}`);
-      }
-
-      // Run initial update if installation was successful
-      if (installResult.ok) {
-        await updateHomebrew(runtime);
-      }
-
-      return {
-        ok: true,
-        didChange: true,
-        details: installResult.details,
-      };
+      const verified = await detectHomebrew(runtime);
+      if (!verified.ok) return { ok: false, didChange: true, details: verified.details };
+      const updateResult = await updateHomebrew(runtime);
+      return { ok: updateResult.ok, didChange: true, details: updateResult.ok ? installResult.details : updateResult.details };
     },
     async validate(runtime) {
       const detectResult = await detectHomebrew(runtime);

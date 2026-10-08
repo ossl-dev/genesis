@@ -29,9 +29,10 @@ export function createPlugin(instance) {
 
 ## Apply order
 
-1. `registerTasks` runs for each plugin in dependency order.
-2. The task registry executes deduplicated system prerequisites. Missing task dependencies and cycles fail before any task runs. A failed system task stops plugin apply.
-3. For each plugin, Genesis runs `preApply`, `apply`, then `postApply`. A returned `ok: false` skips that plugin's post hook and blocks its dependents. Unrelated plugins may continue. Thrown errors stop the run.
+1. `prepare` runs for every plugin in dependency order, before any task registration. Use it only for bootstrap work that shared prerequisites require. A failure stops the run.
+2. `registerTasks` runs for each plugin in dependency order.
+3. The task registry executes deduplicated system prerequisites. Missing task dependencies and cycles fail before any task runs. A failed system task stops plugin apply.
+4. For each plugin, Genesis runs `preApply`, `apply`, then `postApply`. A returned `ok: false` skips that plugin's post hook and blocks its dependents. Unrelated plugins may continue. Thrown errors stop the run.
 
 Hooks receive the same runtime as `apply`: `instance`, normalized `options`, and `context` (`cwd`, `env`, `logger`, `taskRegistry`). Hooks run even when `apply` reports no change, so make them safe to repeat. Register prerequisites in `registerTasks`; the task execution phase is already over when hooks run.
 
@@ -45,4 +46,4 @@ Node's global npm packages and Homebrew's global packages install after their ru
 
 Automatic rollback is not implemented. A failed apply can leave earlier changes in place. Hooks do not imply transactional installs. The default CLI uses sequential plugin execution; the separate parallel engine is a core API.
 
-On macOS, install Homebrew before provisioning other plugins that register brew tasks. Including Homebrew in the same config does not currently bootstrap it ahead of the shared system-task phase.
+On macOS, including Homebrew in the config bootstraps and verifies it during `prepare`, before any plugin registers brew tasks.

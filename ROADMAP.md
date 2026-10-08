@@ -5,7 +5,7 @@ Things to build, fix, and improve. Checked boxes mean implemented in this reposi
 ## Next priorities
 
 1. Make host installation recoverable: staged Go/Java extraction, correct Java/Git release resolution, and version pinning in Docker installers.
-2. Resolve Homebrew bootstrap ordering and propagate every update/upgrade failure.
+2. Validate Homebrew bootstrap and update behavior on disposable macOS hosts.
 3. Add real installer checks in disposable environments, then implement Linux package-manager selection and Windows installers.
 4. Finish local cache persistence/restore before cloud sync or standalone distribution.
 
@@ -200,7 +200,7 @@ Not triaged into phases. Fix anytime.
 - [ ] Resolve Java archive releases and build numbers; stage extraction without selecting unrelated JDK directories.
 - [ ] Replace Go installations through staged extraction with recovery on failure.
 - [ ] Enforce version selection in Git source/binary and Docker installation paths.
-- [ ] Propagate Homebrew update/upgrade failures and bootstrap brew before shared system tasks.
+- [x] Propagate Homebrew update/upgrade failures and bootstrap brew before shared system tasks.
 
 - [x] **Homebrew on Apple Silicon**: choose `/opt/homebrew`, use `/usr/local` on Intel, and expose the install bin directory to later commands.
 - [x] **Docker Desktop on macOS**: retain the downloaded DMG and report manual completion instead of claiming a successful install.

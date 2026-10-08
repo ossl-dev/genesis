@@ -24,4 +24,4 @@ Detection checks `brew --version`. The official install script runs with pipelin
 
 Global packages are preserved by the helper factory and installed after apply. The plugin does not invoke brew to install its own prerequisites.
 
-Install Homebrew before other plugins register brew system tasks: those tasks run before plugin apply. A Homebrew entry in the same config does not resolve initial bootstrap ordering. Some update failures are currently logged rather than propagated.
+A Homebrew entry in the same config installs and verifies brew during `prepare`, before shared tasks register. Update, formula upgrade, cask upgrade, and post-apply package failures stop execution and report failure.

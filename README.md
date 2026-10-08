@@ -71,7 +71,7 @@ Cloud apply is unavailable and exits nonzero. `list --cloud` only reports the un
 
 Built-ins: Node, Python, Go, Java, Git, Docker, and Homebrew. Options are validated when plugins load. Missing dependencies, cycles, and duplicate IDs fail before provisioning. Plugins can declare `dependsOn`, `preApply`, and `postApply` hooks.
 
-- macOS uses Homebrew for shared package tasks; install brew before provisioning other tools. Node uses NVM, Docker uses Colima by default, and Go uses an archive.
+- macOS uses Homebrew for shared package tasks; include the Homebrew plugin to bootstrap brew before shared prerequisites. Node uses NVM, Docker uses Colima by default, and Go uses an archive.
 - Linux shared package tasks use APT. Fedora/Arch support is incomplete.
 - Windows detects installed tools, but missing-tool installation generally requires manual steps.
 - Java archive release resolution and Git source/binary paths are experimental. Go/Java extraction requires permissions for system directories.

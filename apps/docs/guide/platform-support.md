@@ -12,7 +12,7 @@ CI runs unit and local integration tests on macOS, Linux, and Windows. Installer
 
 Go and Java extraction requires permissions for system directories. The code does not automatically elevate archive extraction. Node through NVM is a user installation.
 
-On macOS, install Homebrew before applying plugins that register brew system tasks. Including the Homebrew plugin in the same config does not bootstrap it before that phase.
+On macOS, include the Homebrew plugin to bootstrap brew before shared system tasks, or provide an existing brew installation.
 
 Go downloads map x64 to amd64 and ARM64 to arm64. Docker Desktop downloads select ARM64/x64. Other architectures and installer paths are not comprehensively verified. See each [plugin reference](/plugins/overview).
 

@@ -6,6 +6,7 @@ interface GenesisPlugin<TOptions = unknown> {
   category: GenesisPluginCategory;
   dependsOn?: string[];
   parseOptions?(options: unknown): TOptions;
+  prepare?(runtime: PluginRuntime<TOptions>): Promise<void>;
   registerTasks?(runtime: PluginRuntime<TOptions>): Promise<void>;
   preApply?(runtime: PluginRuntime<TOptions>): Promise<void>;
   apply?(runtime: PluginRuntime<TOptions>): Promise<ApplyResult>;

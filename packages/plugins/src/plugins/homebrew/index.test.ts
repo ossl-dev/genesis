@@ -233,3 +233,34 @@ describe('homebrew plugin', () => {
     });
   });
 });
+
+
+it.each([['update', 1], ['upgrade', 2], ['cask', 3]])('reports a failed %s instead of success', async (_, failingCall) => {
+  mockRunCommand.mockReset();
+  mockGetPlatform.mockReturnValue('macos');
+  mockRunCommand.mockResolvedValueOnce(ok(0, 'Homebrew 4.3.0'));
+  for (let i = 1; i < failingCall; i++) mockRunCommand.mockResolvedValueOnce(ok(0, ''));
+  mockRunCommand.mockResolvedValueOnce(ok(1, '', 'network failed'));
+  const result = await createPlugin(homebrew()).apply!(makeRuntime());
+  expect(result).toMatchObject({ ok: false, didChange: true });
+  expect(result.details).toContain('network failed');
+  expect(mockRunCommand).toHaveBeenCalledTimes(failingCall + 1);
+});
+
+it('bootstraps and verifies brew before shared tasks register', async () => {
+  mockRunCommand.mockReset();
+  mockGetPlatform.mockReturnValue('macos');
+  mockOsArch.mockReturnValue('arm64');
+  mockContext.env = {};
+  mockRunCommand.mockResolvedValueOnce(ok(1, '')).mockResolvedValueOnce(ok(0, '')).mockResolvedValueOnce(ok(0, 'Homebrew 4.3.0'));
+  await createPlugin(homebrew()).prepare!(makeRuntime());
+  expect(mockContext.env).toHaveProperty('PATH', expect.stringContaining('/opt/homebrew/bin'));
+  expect(mockRunCommand.mock.calls.map(call => call[0])).toEqual(['brew', 'bash', 'brew']);
+});
+
+it('stops preparation when an installed brew cannot be verified', async () => {
+  mockRunCommand.mockReset();
+  mockGetPlatform.mockReturnValue('macos');
+  mockRunCommand.mockResolvedValueOnce(ok(1, '')).mockResolvedValueOnce(ok(0, '')).mockResolvedValueOnce(ok(1, ''));
+  await expect(createPlugin(homebrew()).prepare!(makeRuntime())).rejects.toThrow('failed verification');
+});

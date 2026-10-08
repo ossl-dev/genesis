@@ -45,7 +45,7 @@ export function createBinaryPlugin<T extends BinaryOptions>(instance: GenesisPlu
         const release = await spec.release(runtime.options, getPlatform());
         const destination = directory(runtime);
         await installArchive({
-          release, destination, context: runtime.context,
+          release, destination, executable: path.join("bin", filename()), context: runtime.context,
           async select(root) {
             const source = spec.name === "bun" ? await singleDirectory(root) : root;
             const runtimeRoot = path.join(root, "runtime");

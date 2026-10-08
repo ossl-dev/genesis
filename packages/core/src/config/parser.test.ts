@@ -306,3 +306,12 @@ describe('config input boundaries', () => {
     await expect(loadConfig('/fake/project')).rejects.toThrow('tools.0.module:');
   });
 });
+
+
+it.each(['bun', 'deno', 'pnpm', 'yarn'])('normalizes the %s YAML shorthand', async type => {
+  mockExistsSync.mockReturnValue(true);
+  mockYamlParse.mockReturnValue({ tools: [{ type, version: '1.2.3' }] });
+  mockReadFile.mockResolvedValue('');
+  const config = await loadConfig('/fake/plugins', 'genesis.config.yaml');
+  expect(config.tools?.[0]).toEqual({ id: type, category: 'tool', module: `@ossl/genesis-plugins/${type}`, options: { version: '1.2.3' } });
+});

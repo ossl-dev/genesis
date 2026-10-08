@@ -39,7 +39,7 @@ export function createNpmPlugin(instance: GenesisPluginInstance<PackageManagerOp
         if (npm.code !== 0) throw new Error("npm is required; configure a Node plugin or provide Node/npm on PATH");
         const packageName = name === "yarn" && Number(runtime.options.version.split(".")[0]) >= 2 ? "@yarnpkg/cli-dist" : name;
         await installDirectory({
-          destination: directory(runtime), context: runtime.context,
+          destination: directory(runtime), executable: path.relative(directory(runtime), executable(directory(runtime))), context: runtime.context,
           async prepare(stage) {
             const prefix = path.join(stage, "prefix");
             const installed = await runCommand("npm", ["install", "--global", "--prefix", prefix, "--engine-strict", "--ignore-scripts", "--no-audit", "--no-fund", `${packageName}@${runtime.options.version}`], options);

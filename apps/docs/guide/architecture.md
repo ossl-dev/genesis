@@ -5,7 +5,7 @@ Genesis turns a project config into host provisioning operations. Its aim is rep
 ## Packages
 
 - `packages/core`: config parsing/validation, plugin loading and lifecycle, system tasks, environment apply, parallel execution, shell/filesystem utilities.
-- `packages/plugins`: seven built-in plugin factories and implementations.
+- `packages/plugins`: eleven built-in plugin factories and implementations.
 - `apps/cli`: command parsing, config preparation, output, and process exit handling.
 - `apps/docs`: VitePress documentation.
 

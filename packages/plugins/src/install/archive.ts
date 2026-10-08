@@ -55,6 +55,7 @@ async function exists(target: string): Promise<boolean> {
 // Keep staging and backup on the destination filesystem so promotion uses rename.
 export async function installDirectory(options: {
   destination: string;
+  executable?: string;
   context: GenesisPluginContext;
   prepare(stage: string): Promise<string>;
   verify(root: string): Promise<void>;
@@ -75,6 +76,9 @@ export async function installDirectory(options: {
     if (await exists(destination)) {
       const stat = await fs.promises.lstat(destination);
       if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error(`Installation destination must be a real directory: ${destination}`);
+      if (options.executable && (await fs.promises.readdir(destination)).length && !await exists(path.join(destination, options.executable))) {
+        throw new Error(`Refusing to replace a nonempty directory without ${options.executable}: ${destination}`);
+      }
     }
     stage = await fs.promises.mkdtemp(path.join(path.dirname(destination), ".genesis-"));
     const previous = path.join(stage, "previous");
@@ -111,6 +115,7 @@ export async function installDirectory(options: {
 export async function installArchive(options: {
   release: ArchiveRelease;
   destination: string;
+  executable?: string;
   context: GenesisPluginContext;
   select(root: string): Promise<string>;
   verify(root: string): Promise<void>;

@@ -18,6 +18,7 @@ export const optionSchemas = {
   node: z.object({
     version,
     use_nvm: z.boolean().default(true),
+    install_dir: installDirectory,
     global_packages: packages.optional(),
   }).strict(),
   python: z.object({ version }).strict(),

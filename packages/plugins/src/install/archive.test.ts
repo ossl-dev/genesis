@@ -134,3 +134,11 @@ it('installs ZIP archives through the platform archive tool', async () => {
   expect(await installedVersion()).toBe('new');
   await expectClean();
 });
+
+
+it('refuses to replace a nonempty directory belonging to something else', async () => {
+  await expect(installArchive({ ...options(), executable: path.join('bin', 'go') })).rejects.toThrow('Refusing to replace a nonempty directory');
+  expect(await installedVersion()).toBe('old');
+  expect(fetch).not.toHaveBeenCalled();
+  await expectClean();
+});

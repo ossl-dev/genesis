@@ -34,7 +34,10 @@ async function detectGo(runtime: PluginRuntime<GoOptions>) {
   const executable = path.join(directory, "bin", getPlatform() === "windows" ? "go.exe" : "go");
   const managed = fs.existsSync(executable);
   const result = await checkGo(runtime, managed || runtime.options.install_dir ? executable : "go");
-  if (result.ok && managed) prependPath(runtime.context.env, path.join(directory, "bin"));
+  if (result.ok && managed) {
+    runtime.context.env.GOROOT = directory;
+    prependPath(runtime.context.env, path.join(directory, "bin"));
+  }
   return result;
 }
 
@@ -52,12 +55,13 @@ export function createPlugin(instance: GenesisPluginInstance<GoOptions>): Genesi
         const destination = goDirectory(runtime);
         const release = await goRelease(runtime.options.version, platform);
         await installArchive({
-          release, destination, context: runtime.context, select: singleDirectory,
+          release, destination, executable: path.join("bin", platform === "windows" ? "go.exe" : "go"), context: runtime.context, select: singleDirectory,
           async verify(root) {
             const result = await checkGo(runtime, path.join(root, "bin", platform === "windows" ? "go.exe" : "go"));
             if (!result.ok) throw new Error(result.details);
           },
         });
+        runtime.context.env.GOROOT = destination;
         prependPath(runtime.context.env, path.join(destination, "bin"));
         runtime.context.logger.info(`Add ${path.join(destination, "bin")} to your shell PATH for future sessions.`);
         return { ok: true, didChange: true, details: `Go ${runtime.options.version} installed to ${destination}` };

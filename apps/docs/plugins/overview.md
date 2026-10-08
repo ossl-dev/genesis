@@ -4,7 +4,7 @@ Genesis includes eleven plugin implementations. Installation paths and validatio
 
 | Plugin | Automatic path | Limits |
 | --- | --- | --- |
-| [Node](/plugins/node) | NVM on macOS/Linux | Standalone/Windows install incomplete |
+| [Node](/plugins/node) | NVM on Unix or checksummed staged archive | Official Linux archives require glibc; published x64/ARM64 assets |
 | [Bun](/plugins/bun) | Checksummed, staged archive | Published x64/ARM64 assets; Linux libc selection |
 | [Deno](/plugins/deno) | Checksummed, staged archive | Published x64/ARM64 assets; glibc Linux required |
 | [pnpm](/plugins/pnpm) | Staged npm prefix | Compatible Node/npm required |
@@ -16,7 +16,7 @@ Genesis includes eleven plugin implementations. Installation paths and validatio
 | [Docker](/plugins/docker) | Colima or Linux installer | Desktop manual; Linux distro support partial |
 | [Homebrew](/plugins/homebrew) | macOS installer | Same-config bootstrap precedes shared tasks |
 
-Go, Java, Bun, and Deno have Windows archive paths; pnpm/Yarn use Windows npm shims. Other missing Windows tools generally require manual installation. An installer smoke workflow exercises pinned versions in temporary directories on macOS, Ubuntu, and Windows; local successful runs are not proof that every release/architecture works.
+Node, Go, Java, Bun, and Deno have Windows archive paths; pnpm/Yarn use Windows npm shims. Other missing Windows tools generally require manual installation. An installer smoke workflow exercises pinned versions in temporary directories on macOS, Ubuntu, and Windows; local successful runs are not proof that every release/architecture works.
 
 Matching runtimes skip installation. Options validate at load time; IDs must be unique. Rust, databases, mobile SDKs, and other proposed plugins remain [roadmap work](https://github.com/ossl-dev/genesis/blob/main/ROADMAP.md).
 

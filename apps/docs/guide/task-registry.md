@@ -14,6 +14,6 @@ The install helper depends on the update ID, so both must be registered. Missing
 
 Task dependencies take precedence over priority. Completed results are reused if executeAll is called again. Create a fresh registry for each apply, and do not run a registry concurrently.
 
-Shared Linux helpers currently use APT. macOS helpers require brew to already be available. Platform-specific installers must choose appropriate package names; the registry does not discover distribution package mappings.
+Shared Linux helpers currently use APT. macOS helpers use brew; including Homebrew in the config bootstraps it during `prepare`. Platform-specific installers must choose appropriate package names; the registry does not discover distribution package mappings.
 
 Global Node/Homebrew packages run after those tools are ready, rather than as prerequisites. See [Lifecycle](/plugins/lifecycle) and [Task API](/api/task-registry).

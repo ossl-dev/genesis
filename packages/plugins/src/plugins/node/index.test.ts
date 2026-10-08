@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import path from 'node:path';
 
 // ── Mock variables ─────────────────────────────────────────────────
-const { mockRunCommand, mockGetPlatform, mockCreatePkgUpdateTask, mockCreatePkgInstallTask, mockCreateCmdCheckTask, mockCreateCustomTask, mockFsPromisesAccess, mockOsHomedir, mockOsArch, mockOsTmpdir } = vi.hoisted(() => ({
+const { mockRunCommand, mockGetPlatform, mockCreatePkgUpdateTask, mockCreatePkgInstallTask, mockCreateCmdCheckTask, mockCreateCustomTask, mockFsPromisesAccess, mockOsHomedir, mockOsArch, mockOsTmpdir, mockInstallArchive, mockNodeRelease } = vi.hoisted(() => ({
   mockRunCommand: vi.fn(),
   mockGetPlatform: vi.fn(() => 'macos'),
   mockCreatePkgUpdateTask: vi.fn(),
@@ -13,6 +13,8 @@ const { mockRunCommand, mockGetPlatform, mockCreatePkgUpdateTask, mockCreatePkgI
   mockOsHomedir: vi.fn(() => '/home/testuser'),
   mockOsArch: vi.fn(() => 'arm64'),
   mockOsTmpdir: vi.fn(() => '/tmp'),
+  mockInstallArchive: vi.fn(),
+  mockNodeRelease: vi.fn(),
 }));
 
 // ── Module mocks ───────────────────────────────────────────────────
@@ -38,6 +40,14 @@ vi.mock('node:fs', () => ({
   existsSync: vi.fn(() => false),
   constants: { F_OK: 0 },
 }));
+
+vi.mock('../../install/archive.js', () => ({
+  InstallationRecoveryError: class extends Error {},
+  installArchive: mockInstallArchive,
+  singleDirectory: vi.fn(),
+  prependPath: (env: NodeJS.ProcessEnv, dir: string) => { env.PATH = dir; },
+}));
+vi.mock('../../install/releases.js', () => ({ nodeRelease: mockNodeRelease }));
 
 import { node, createPlugin } from './index.js';
 
@@ -68,6 +78,8 @@ describe('node plugin', () => {
     vi.clearAllMocks();
     mockGetPlatform.mockReturnValue('macos');
     mockContext.env = {};
+    mockInstallArchive.mockReset().mockResolvedValue(undefined);
+    mockNodeRelease.mockReset().mockResolvedValue({ url: 'https://nodejs.org/archive', sha256: 'a'.repeat(64), format: 'tar.gz' });
   });
 
   // ── detect ──
@@ -150,6 +162,7 @@ describe('node plugin', () => {
       mockRunCommand.mockResolvedValueOnce(ok(0, '', ''));
 
       mockRunCommand.mockResolvedValueOnce(ok(0, '/home/testuser/.nvm/versions/node/v20.11.0/bin/node'));
+      mockRunCommand.mockResolvedValueOnce(ok(0, 'v20.11.0'));
       const plugin = createPlugin(node({ version: '20' }) as any);
       const result = await plugin.apply!(makeRuntime());
 
@@ -167,6 +180,7 @@ describe('node plugin', () => {
       mockRunCommand.mockResolvedValueOnce(ok(0, '', ''));
 
       mockRunCommand.mockResolvedValueOnce(ok(0, '/home/testuser/.nvm/versions/node/v20.11.0/bin/node'));
+      mockRunCommand.mockResolvedValueOnce(ok(0, 'v20.11.0'));
       const plugin = createPlugin(node({ version: '20' }) as any);
       const result = await plugin.apply!(makeRuntime());
 
@@ -216,6 +230,7 @@ describe('node plugin', () => {
       mockRunCommand.mockResolvedValueOnce(ok(0, '', ''));
 
       mockRunCommand.mockResolvedValueOnce(ok(0, '/home/testuser/.nvm/versions/node/v20.11.0/bin/node'));
+      mockRunCommand.mockResolvedValueOnce(ok(0, 'v20.11.0'));
       const plugin = createPlugin(node({ version: '20' }) as any);
       const result = await plugin.apply!(makeRuntime());
 
@@ -226,14 +241,14 @@ describe('node plugin', () => {
 
   // ── apply: use_nvm:false ──
   describe('apply with use_nvm:false on macOS', () => {
-    it('returns standalone-not-supported message', async () => {
+    it('installs a standalone archive', async () => {
       mockRunCommand.mockResolvedValueOnce(ok(1, '', ''));
 
       const plugin = createPlugin(node({ version: '20', use_nvm: false }) as any);
       const result = await plugin.apply!(makeRuntime({ use_nvm: false }));
 
-      expect(result.ok).toBe(false);
-      expect(result.details).toContain('Standalone installation not supported');
+      expect(result.ok).toBe(true);
+      expect(mockInstallArchive).toHaveBeenCalled();
     });
   });
 
@@ -243,25 +258,25 @@ describe('node plugin', () => {
       mockGetPlatform.mockReturnValue('windows');
     });
 
-    it('prints nvm guide when use_nvm is true', async () => {
+    it('uses a native archive when use_nvm is true', async () => {
       mockRunCommand.mockResolvedValueOnce(ok(1, '', ''));
 
       const plugin = createPlugin(node({ version: '20' }) as any);
       const result = await plugin.apply!(makeRuntime());
 
-      expect(result.ok).toBe(false);
-      expect(result.didChange).toBe(false);
-      expect(result.details).toContain('not supported on Windows');
+      expect(result.ok).toBe(true);
+      expect(result.didChange).toBe(true);
+      expect(mockNodeRelease).toHaveBeenCalledWith('20', 'windows');
     });
 
-    it('prints standalone guide when use_nvm is false', async () => {
+    it('installs a native standalone archive', async () => {
       mockRunCommand.mockResolvedValueOnce(ok(1, '', ''));
 
       const plugin = createPlugin(node({ version: '20', use_nvm: false }) as any);
       const result = await plugin.apply!(makeRuntime({ use_nvm: false }));
 
-      expect(result.ok).toBe(false);
-      expect(result.details).toContain('Manual installation required');
+      expect(result.ok).toBe(true);
+      expect(mockInstallArchive).toHaveBeenCalled();
     });
   });
 
@@ -365,12 +380,12 @@ describe('node plugin', () => {
 });
 
 
-it('installs global packages through NVM after Node is ready', async () => {
+it('installs global packages using the selected runtime PATH', async () => {
   mockFsPromisesAccess.mockResolvedValue(undefined);
   mockRunCommand.mockResolvedValue({ code: 0, stdout: '', stderr: '' });
   const plugin = createPlugin(node({ version: '20', global_packages: ['typescript'] }));
   await plugin.postApply!(makeRuntime({ global_packages: ['typescript'] }));
-  expect(mockRunCommand).toHaveBeenCalledWith('bash', expect.arrayContaining(['genesis-npm', path.join('/home/testuser', '.nvm', 'nvm.sh'), '20', 'typescript']), expect.anything());
+  expect(mockRunCommand).toHaveBeenCalledWith('npm', ['install', '-g', '--', 'typescript'], { cwd: '/test', env: mockContext.env });
 });
 
 
@@ -383,4 +398,30 @@ it('skips prerequisite registration when the desired runtime is already present'
   const runtime = makeRuntime({ ...instance.options });
   await createPlugin(instance).registerTasks!(runtime);
   expect(mockTaskRegistry.register).not.toHaveBeenCalled();
+});
+
+
+it.each(['macos', 'linux', 'windows'])('verifies standalone executables on %s', async platform => {
+  vi.clearAllMocks(); mockRunCommand.mockReset();
+  mockGetPlatform.mockReturnValue(platform);
+  mockRunCommand.mockResolvedValueOnce(ok(1, '')).mockResolvedValueOnce(ok(0, 'v22.18.0'));
+  mockInstallArchive.mockImplementationOnce(async config => { await config.verify(path.resolve('stage')); });
+  mockNodeRelease.mockResolvedValue({ url: 'https://nodejs.org/archive', sha256: 'a'.repeat(64), format: 'tar.gz' });
+  const runtime = makeRuntime({ version: '22', use_nvm: false, install_dir: path.resolve('managed-node') });
+  expect(await createPlugin(node(runtime.options)).apply!(runtime)).toMatchObject({ ok: true, didChange: true });
+  expect(mockRunCommand.mock.calls[1][0]).toBe(path.resolve('stage', ...(platform === 'windows' ? ['node.exe'] : ['bin', 'node'])));
+});
+
+it('rejects failed NVM default alias updates', async () => {
+  mockRunCommand.mockReset(); mockGetPlatform.mockReturnValue('macos');
+  mockFsPromisesAccess.mockResolvedValue(undefined);
+  mockRunCommand.mockResolvedValueOnce(ok(1, '')).mockResolvedValueOnce(ok(0, '')).mockResolvedValueOnce(ok(1, '', 'alias failed'));
+  expect(await createPlugin(node({ version: '20' })).apply!(makeRuntime())).toMatchObject({ ok: false, didChange: true, details: expect.stringContaining('alias failed') });
+});
+
+it('does not claim success for a wrong NVM executable version', async () => {
+  mockRunCommand.mockReset(); mockGetPlatform.mockReturnValue('macos');
+  mockFsPromisesAccess.mockResolvedValue(undefined);
+  mockRunCommand.mockResolvedValueOnce(ok(1, '')).mockResolvedValueOnce(ok(0, '')).mockResolvedValueOnce(ok(0, '')).mockResolvedValueOnce(ok(0, path.resolve('node-bin', 'node'))).mockResolvedValueOnce(ok(0, 'v18.0.0'));
+  expect(await createPlugin(node({ version: '20' })).apply!(makeRuntime())).toMatchObject({ ok: false, details: expect.stringContaining('18.0.0') });
 });

@@ -1,4 +1,6 @@
 import { optionSchemas, matchesVersion } from "../../options.js";
+import { InstallationRecoveryError, installArchive, prependPath, singleDirectory } from "../../install/archive.js";
+import { nodeRelease } from "../../install/releases.js";
 import {
   type GenesisPlugin,
   type GenesisPluginInstance,
@@ -16,6 +18,7 @@ export interface NodeOptions {
   version: string;
   use_nvm?: boolean;
   global_packages?: string[];
+  install_dir?: string;
 }
 
 export function node(options: NodeOptions): GenesisPluginInstance<NodeOptions> {
@@ -34,14 +37,7 @@ export function node(options: NodeOptions): GenesisPluginInstance<NodeOptions> {
  * Parse Node.js version from command output
  */
 function parseNodeVersion(output: string): string | undefined {
-  const value = output.trim();
-  if (!value) {
-    return undefined;
-  }
-  if (value.startsWith("v")) {
-    return value.slice(1);
-  }
-  return value;
+  return output.trim().match(/^v?(\d+\.\d+\.\d+)$/)?.[1];
 }
 
 /**
@@ -51,7 +47,7 @@ function getNvmDir(env: NodeJS.ProcessEnv): string {
   if (env.NVM_DIR) {
     return env.NVM_DIR;
   }
-  const home = os.homedir();
+  const home = env.HOME ?? os.homedir();
   const xdgConfigHome = env.XDG_CONFIG_HOME;
   if (xdgConfigHome) {
     return path.join(xdgConfigHome, "nvm");
@@ -180,7 +176,7 @@ async function installNodeViaNvm(
   );
 
   if (aliasResult.code !== 0) {
-    logger.warn(`Failed to set Node.js ${version} as default`);
+    return { ok: false, details: `Failed to set Node.js ${version} as NVM default: ${aliasResult.stderr}` };
   } else {
     logger.info(`Node.js ${version} set as default`);
   }
@@ -192,42 +188,13 @@ async function installNodeViaNvm(
   if (resolved.code !== 0 || !path.isAbsolute(executable)) {
     return { ok: false, details: `Node.js installed but its executable could not be resolved: ${resolved.stderr}` };
   }
-  runtime.context.env.PATH = `${path.dirname(executable)}${path.delimiter}${runtime.context.env.PATH ?? process.env.PATH ?? ""}`;
+  prependPath(runtime.context.env, path.dirname(executable));
+  const verified = await checkNode(runtime, executable);
+  if (!verified.ok) return verified;
   return {
     ok: true,
     details: `Node.js ${version} installed via NVM`,
   };
-}
-
-/**
- * Log Windows installation guide for NVM
- */
-function logWindowsNvmGuide(logger: any): void {
-  logger.warn("Automatic NVM installation is not supported on Windows");
-  logger.info("");
-  logger.info("=== NVM for Windows Installation Guide ===");
-  logger.info("");
-  logger.info("1. Visit the nvm-windows repository:");
-  logger.info("   https://github.com/coreybutler/nvm-windows");
-  logger.info("");
-  logger.info("2. Download the latest release:");
-  logger.info("   - Click on 'Releases' on the right sidebar");
-  logger.info("   - Download 'nvm-setup.exe' from the latest release");
-  logger.info("");
-  logger.info("3. Run the installer:");
-  logger.info("   - Double-click the downloaded nvm-setup.exe");
-  logger.info("   - Follow the installation wizard");
-  logger.info("");
-  logger.info("4. Verify installation:");
-  logger.info("   - Open a new Command Prompt or PowerShell");
-  logger.info("   - Run: nvm version");
-  logger.info("");
-  logger.info("5. Install Node.js:");
-  logger.info(`   - Run: nvm install ${logger.version || "latest"}`);
-  logger.info(`   - Run: nvm use ${logger.version || "latest"}`);
-  logger.info("");
-  logger.info("===========================================");
-  logger.info("");
 }
 
 /**
@@ -245,11 +212,7 @@ async function installGlobalNpmPackages(
 
   logger.info(`Installing global npm packages: ${packages.join(", ")}`);
 
-  const result = runtime.options.use_nvm && getPlatform() !== "windows" && await isNvmInstalled(runtime)
-    ? await runCommand("bash", ["-c", 'source "$1" && nvm use "$2" && shift 2 && npm install -g -- "$@"', "genesis-npm", path.join(getNvmDir(runtime.context.env), "nvm.sh"), runtime.options.version, ...packages], {
-      cwd: runtime.context.cwd, env: runtime.context.env,
-    })
-    : await runCommand("npm", ["install", "-g", "--", ...packages], {
+  const result = await runCommand("npm", ["install", "-g", "--", ...packages], {
     cwd: runtime.context.cwd,
     env: runtime.context.env,
   });
@@ -267,8 +230,8 @@ async function installGlobalNpmPackages(
   };
 }
 
-async function detectNode(runtime: PluginRuntime<NodeOptions>) {
-  const result = await runCommand("node", ["-v"], {
+async function checkNode(runtime: PluginRuntime<NodeOptions>, executable: string) {
+  const result = await runCommand(executable, ["-v"], {
     cwd: runtime.context.cwd,
     env: runtime.context.env,
   });
@@ -297,6 +260,48 @@ async function detectNode(runtime: PluginRuntime<NodeOptions>) {
   };
 }
 
+function archiveDirectory(runtime: PluginRuntime<NodeOptions>): string {
+  return runtime.options.install_dir ?? path.join((getPlatform() === "windows" ? runtime.context.env.USERPROFILE : runtime.context.env.HOME) ?? os.homedir(), ".genesis", "node");
+}
+
+function archiveBin(root: string): string {
+  return getPlatform() === "windows" ? root : path.join(root, "bin");
+}
+
+function archiveExecutable(root: string): string {
+  return path.join(archiveBin(root), getPlatform() === "windows" ? "node.exe" : "node");
+}
+
+async function detectNode(runtime: PluginRuntime<NodeOptions>) {
+  if (runtime.options.use_nvm && !runtime.options.install_dir && getPlatform() !== "windows") return checkNode(runtime, "node");
+  const root = archiveDirectory(runtime);
+  const executable = archiveExecutable(root);
+  const managed = fs.existsSync(executable);
+  const result = await checkNode(runtime, managed || runtime.options.install_dir ? executable : "node");
+  if (result.ok && managed) prependPath(runtime.context.env, archiveBin(root));
+  return result;
+}
+
+async function installStandalone(runtime: PluginRuntime<NodeOptions>) {
+  try {
+    const platform = getPlatform();
+    const destination = archiveDirectory(runtime);
+    const release = await nodeRelease(runtime.options.version, platform);
+    await installArchive({
+      release, destination, executable: path.relative(destination, archiveExecutable(destination)), context: runtime.context, select: singleDirectory,
+      async verify(root) {
+        const result = await checkNode(runtime, archiveExecutable(root));
+        if (!result.ok) throw new Error(result.details);
+      },
+    });
+    prependPath(runtime.context.env, archiveBin(destination));
+    runtime.context.logger.info(`Add ${archiveBin(destination)} to your shell PATH for future sessions.`);
+    return { ok: true, didChange: true, details: `Node ${runtime.options.version} installed to ${destination}` };
+  } catch (error) {
+    return { ok: false, didChange: error instanceof InstallationRecoveryError, details: `Node installation failed: ${error instanceof Error ? error.message : error}` };
+  }
+}
+
 export function createPlugin(
   instance: GenesisPluginInstance<NodeOptions>,
 ): GenesisPlugin<NodeOptions> {
@@ -309,19 +314,19 @@ export function createPlugin(
     },
     async registerTasks(runtime) {
       const { taskRegistry, logger } = runtime.context;
-      const { use_nvm, global_packages } = runtime.options;
+      const { use_nvm } = runtime.options;
       const platform = getPlatform();
 
-      // Skip task registration for Windows (manual installation required)
+      // Windows uses a standalone archive.
       if (platform === "windows") {
         return;
       }
 
       // If using NVM, we need curl to download the NVM install script
-      if (use_nvm) {
+      if (use_nvm && !runtime.options.install_dir) {
         if ((await this.detect!(runtime)).ok) return;
 
-      logger.debug(
+        logger.debug(
           "Registering system tasks for NVM installation prerequisites",
         );
 
@@ -368,33 +373,10 @@ export function createPlugin(
         };
       }
 
-      // Handle Windows separately
-      if (platform === "windows") {
-        if (use_nvm) {
-          logWindowsNvmGuide({ ...logger, version: runtime.options.version });
-          return {
-            ok: false,
-            didChange: false,
-            details:
-              "Automatic installation not supported on Windows. See installation guide in logs.",
-          };
-        } else {
-          logger.warn(
-            "Standalone Node.js installation on Windows is not yet supported",
-          );
-          logger.info(
-            "Please download and install Node.js manually from https://nodejs.org/",
-          );
-          return {
-            ok: false,
-            didChange: false,
-            details: "Manual installation required. Visit https://nodejs.org/",
-          };
-        }
-      }
+      if (platform === "windows") return installStandalone(runtime);
 
       // macOS/Linux installation
-      if (use_nvm) {
+      if (use_nvm && !runtime.options.install_dir) {
         logger.info("Installing Node.js via NVM...");
 
         // Check if NVM is installed
@@ -435,17 +417,7 @@ export function createPlugin(
           details: installNodeResult.details,
         };
       } else {
-        // Standalone installation (not yet implemented)
-        logger.warn("Standalone Node.js installation is not yet supported");
-        logger.info(
-          "Please install Node.js manually or set use_nvm: true in your config",
-        );
-        return {
-          ok: false,
-          didChange: false,
-          details:
-            "Standalone installation not supported. Use use_nvm: true or install manually.",
-        };
+        return installStandalone(runtime);
       }
     },
     async validate(runtime) {

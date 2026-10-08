@@ -34,6 +34,7 @@ describe("Go", () => {
     expect(await createPlugin(rt.instance).apply!(rt)).toMatchObject({ ok: true, didChange: true });
     expect(mocks.release).toHaveBeenCalledWith("1.22.5", platform);
     expect(rt.context.env.PATH).toBe(path.join(rt.options.install_dir!, "bin"));
+    expect(rt.context.env.GOROOT).toBe(rt.options.install_dir);
     expect(mocks.run.mock.calls[1][0]).toBe(path.resolve("staged", "bin", platform === "windows" ? "go.exe" : "go"));
   });
   it("finds a managed install on later invocations", async () => {

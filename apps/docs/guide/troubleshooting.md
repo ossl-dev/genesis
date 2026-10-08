@@ -28,7 +28,7 @@ A failed system prerequisite stops plugin apply. Debug logs can show registered 
 GENESIS_DEBUG=1 bun /path/to/genesis/apps/cli/dist/index.js apply
 ```
 
-Check the reported package command, permissions, network access, and package availability. Shared Linux tasks currently use APT. On macOS, preinstall Homebrew before tools that need brew tasks. Archive extraction into system directories also requires filesystem permissions.
+Check the reported package command, permissions, network access, and package availability. Shared Linux tasks currently use APT. On macOS, include Homebrew in the config or preinstall it before tools that need brew tasks. Archive extraction into system directories also requires filesystem permissions.
 
 ## Tool installed but validation still fails
 
@@ -53,3 +53,7 @@ Desktop requires manual installation and license acceptance. Genesis keeps the d
 Cloud apply is unavailable. Login only stores an unverified token. No restore command exists, and the cache prototype does not restore the filesystem. Use local version-controlled configs.
 
 Report reproducible problems at [GitHub Issues](https://github.com/ossl-dev/genesis/issues), including the command, OS/architecture, redacted config, and error output.
+
+## Interrupted staged installation
+
+Installers use an adjacent `.genesis-<random>` staging directory and `<install_dir>.genesis-lock`. A crash can leave both. Before removing a stale lock, confirm no install is running and inspect retained `previous` contents. Recovery failures report the backup path; preserve it until the intended installation has been restored. Nonempty directories without the expected executable are refused to avoid replacing unrelated files.

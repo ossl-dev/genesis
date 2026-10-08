@@ -1,14 +1,6 @@
 import type { Command } from "commander";
 
-const BUILTIN_PLUGINS = [
-  { id: "node", module: "@ossl/genesis-plugins/node", description: "Node.js JavaScript runtime" },
-  { id: "python", module: "@ossl/genesis-plugins/python", description: "Python programming language" },
-  { id: "go", module: "@ossl/genesis-plugins/go", description: "Go programming language" },
-  { id: "docker", module: "@ossl/genesis-plugins/docker", description: "Docker container runtime" },
-  { id: "java", module: "@ossl/genesis-plugins/java", description: "Java development kit" },
-  { id: "homebrew", module: "@ossl/genesis-plugins/homebrew", description: "Homebrew package manager (macOS/Linux)" },
-  { id: "git", module: "@ossl/genesis-plugins/git", description: "Git version control system" },
-];
+import { BUILTIN_PLUGINS } from "@ossl/genesis-core";
 
 export function registerListPluginsCommand(program: Command): void {
   program

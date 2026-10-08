@@ -4,7 +4,7 @@ Things to build, fix, and improve. Checked boxes mean implemented in this reposi
 
 ## Next priorities
 
-1. Extend verified staged installation beyond Go/Java; correct Git release resolution and version pinning in Docker installers.
+1. Correct Git release resolution and Docker version pinning; extend disposable-host validation beyond archive and npm-prefix installers.
 2. Validate Homebrew bootstrap and update behavior on disposable macOS hosts.
 3. Run the installer smoke workflow across disposable macOS/Ubuntu/Windows runners, then extend Linux package-manager selection and remaining Windows installers.
 4. Finish local cache persistence/restore before cloud sync or standalone distribution.
@@ -29,7 +29,7 @@ Unit tests cover configs, plugins, task scheduling, and CLI behavior. Local inte
 - [x] Add unit tests for each plugin's `detect`, `apply`, `validate` methods (mock the shell)
 - [x] Add integration tests — execute real scripts and local Git clones in temp directories; cover failures and preservation of existing files
 - [x] Add platform-specific test runs (macOS, Linux, Windows) in CI
-- [x] Add real installer smoke workflow for Go, Java, Bun, Deno, pnpm, and Yarn in temporary directories; published downloads and repeated apply are checked. Local macOS ARM64 runs passed; remote CI results remain to be observed.
+- [x] Add real installer smoke workflow for Node, Go, Java, Bun, Deno, pnpm, and Yarn in temporary directories; published downloads and repeated apply are checked. Local macOS ARM64 runs passed; remote CI results remain to be observed.
 
 ### CI / infra
 
@@ -74,7 +74,7 @@ Make existing stuff faster, safer, more portable.
 
 ### Platform support
 
-- [ ] **Windows** — Go/Java archive installers are implemented. Add native installers for Node, Python, and Git through supported Windows package/version managers.
+- [ ] **Windows** — Node/Go/Java/Bun/Deno archive installers and pnpm/Yarn npm prefixes are implemented. Add native Python and Git installers.
 - [ ] **Linux** — test on Debian, Fedora, Arch. Shared system tasks currently hardcode APT; implement distribution/package-manager selection and package mappings.
 - [ ] **aarch64 / ARM** — Go and Docker Desktop map ARM64 correctly. Add real ARM installer checks and reject unsupported architectures rather than falling back to x64.
 - [x] `genesis doctor` detects and validates configured plugins with nonzero failure exits
@@ -208,7 +208,7 @@ Not triaged into phases. Fix anytime.
 - [x] **Homebrew on Apple Silicon**: choose `/opt/homebrew`, use `/usr/local` on Intel, and expose the install bin directory to later commands.
 - [x] **Docker Desktop on macOS**: retain the downloaded DMG and report manual completion instead of claiming a successful install.
 - [x] **Go arch detection**: map ARM64 to arm64 and x64 to amd64 in archive URLs.
-- [ ] **Node standalone install**: `use_nvm: false` prints "standalone installation not yet supported" and skips. Should at least try fnm or a direct download.
+- [x] **Node standalone install**: resolve stable release prefixes, verify published archive checksums, stage and recover installs on macOS/glibc Linux/Windows; expose Node/npm to later plugins.
 - [x] **Parallel execution with one core**: `ParallelExecutionEngine` doesn't check available CPUs — could oversubscribe a low-resource machine.
 - [x] **Config validation error messages**: Zod errors are printed raw without context. "Expected number, got string" on a deeply nested field is hard to debug — need path + friendly message.
 - [x] **Plugin loading errors**: report the plugin ID and module when import fails; load-time option errors also include the ID.

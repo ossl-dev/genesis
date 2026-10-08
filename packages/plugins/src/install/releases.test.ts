@@ -80,3 +80,21 @@ describe("Bun and Deno releases", () => {
     await expect(denoRelease('2.5.4', 'macos')).rejects.toThrow('No SHA-256');
   });
 });
+
+
+import { nodeRelease } from "./releases.js";
+describe('Node archive resolution', () => {
+  it.each([['macos', 'darwin', 'tar.gz'], ['linux', 'linux', 'tar.gz'], ['windows', 'win', 'zip']] as const)('selects stable Node versions and archive formats on %s', async (platform, system, format) => {
+    vi.spyOn(os, 'arch').mockReturnValue('arm64');
+    const filename = `node-v22.18.0-${system}-arm64.${format}`;
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify([{ version: 'v22.19.0-rc.1' }, { version: 'v24.0.0' }, { version: 'v22.18.0' }, { version: 'v22.17.0' }])))
+      .mockResolvedValueOnce(new Response(`${hash}  ${filename}
+`)));
+    expect(await nodeRelease('22', platform)).toEqual({ url: `https://nodejs.org/dist/v22.18.0/${filename}`, sha256: hash, format });
+  });
+  it('does not silently choose another major or unpublished version', async () => {
+    json([{ version: 'v22.18.0' }]);
+    await expect(nodeRelease('2', 'macos')).rejects.toThrow('No Node release');
+  });
+});

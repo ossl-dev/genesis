@@ -3,22 +3,11 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import yaml from "yaml";
 import { z } from "zod";
-import { type GenesisConfig, type GenesisPluginCategory } from "./schema.js";
+import { type GenesisConfig } from "./schema.js";
+import { BUILTIN_PLUGINS } from "../plugins/catalog.js";
 import { validateConfig } from "./validator.js";
 
-const yamlPluginDefaults: Record<string, { module: string; category: GenesisPluginCategory }> = {
-  pnpm: { module: "@ossl/genesis-plugins/pnpm", category: "tool" },
-  yarn: { module: "@ossl/genesis-plugins/yarn", category: "tool" },
-  bun: { module: "@ossl/genesis-plugins/bun", category: "tool" },
-  deno: { module: "@ossl/genesis-plugins/deno", category: "tool" },
-  node: { module: "@ossl/genesis-plugins/node", category: "tool" },
-  python: { module: "@ossl/genesis-plugins/python", category: "language" },
-  go: { module: "@ossl/genesis-plugins/go", category: "language" },
-  docker: { module: "@ossl/genesis-plugins/docker", category: "tool" },
-  java: { module: "@ossl/genesis-plugins/java", category: "language" },
-  homebrew: { module: "@ossl/genesis-plugins/homebrew", category: "tool" },
-  git: { module: "@ossl/genesis-plugins/git", category: "tool" },
-};
+const yamlPluginDefaults = new Map(BUILTIN_PLUGINS.map(plugin => [plugin.id, plugin]));
 
 function normalizeYamlConfig(raw: unknown): unknown {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return raw;
@@ -29,7 +18,7 @@ function normalizeYamlConfig(raw: unknown): unknown {
     config[section] = entries.map((entry, index) => {
       if (!entry || typeof entry !== "object" || !("type" in entry)) return entry;
       const { type, ...options } = entry;
-      const meta = typeof type === "string" ? yamlPluginDefaults[type] : undefined;
+      const meta = typeof type === "string" ? yamlPluginDefaults.get(type) : undefined;
       if (!meta) {
         throw new Error(`Unknown plugin type '${type}' in genesis.config.yaml (${section}[${index}])`);
       }

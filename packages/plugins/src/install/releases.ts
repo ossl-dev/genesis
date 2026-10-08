@@ -85,3 +85,21 @@ export async function denoRelease(version: string, platform: Platform): Promise<
   const url = `https://github.com/denoland/deno/releases/download/v${version}/${filename}`;
   return { url, sha256: fileChecksum(await fetchText(`${url}.sha256sum`), filename), format: "zip" };
 }
+
+
+export async function nodeRelease(requested: string, platform: Platform): Promise<ArchiveRelease> {
+  const arch = releaseArchitecture();
+  if (platform === "linux" && isMusl()) throw new Error("Node's official Linux archives require glibc; use a compatible runtime on musl");
+  const releases = z.array(z.object({ version: z.string() })).parse(await fetchJson("https://nodejs.org/dist/index.json"));
+  const release = releases.find(release => {
+    const version = release.version.replace(/^v/, "");
+    return /^\d+\.\d+\.\d+$/.test(version) && requested.split(".").every((part, index) => part === version.split(".")[index]);
+  });
+  if (!release) throw new Error(`No Node release matches ${requested}`);
+  const version = release.version;
+  const system = platform === "macos" ? "darwin" : platform === "windows" ? "win" : "linux";
+  const format = platform === "windows" ? "zip" : "tar.gz";
+  const filename = `node-${version}-${system}-${arch}.${format}`;
+  const base = `https://nodejs.org/dist/${version}`;
+  return { url: `${base}/${filename}`, sha256: fileChecksum(await fetchText(`${base}/SHASUMS256.txt`), filename), format };
+}

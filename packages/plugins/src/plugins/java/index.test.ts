@@ -1,266 +1,74 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import path from "node:path";
+const mocks = vi.hoisted(() => ({ run: vi.fn(), platform: vi.fn(), exists: vi.fn(), install: vi.fn(), release: vi.fn() }));
+vi.mock("@ossl/genesis-core", () => ({ runCommand: mocks.run, getPlatform: mocks.platform }));
+vi.mock("node:fs", () => ({ default: { existsSync: mocks.exists } }));
+vi.mock("../../install/archive.js", () => ({ InstallationRecoveryError: class extends Error {}, installArchive: mocks.install, singleDirectory: async (root: string) => path.join(root, "jdk"), prependPath: (env: NodeJS.ProcessEnv, dir: string) => { env.PATH = dir; } }));
+vi.mock("../../install/releases.js", async original => ({ ...await original<typeof import("../../install/releases.js")>(), javaRelease: mocks.release }));
+import { java, createPlugin } from "./index.js";
 
-// ── Mock variables ─────────────────────────────────────────────────
-const { mockRunCommand, mockGetPlatform, mockCreatePkgUpdateTask, mockCreatePkgInstallTask, mockFsPromisesMkdir, mockFsPromisesReaddir, mockFsPromisesRename, mockFsPromisesUnlink, mockOsArch } = vi.hoisted(() => ({
-  mockRunCommand: vi.fn(),
-  mockGetPlatform: vi.fn(() => 'macos'),
-  mockCreatePkgUpdateTask: vi.fn(),
-  mockCreatePkgInstallTask: vi.fn(),
-  mockFsPromisesMkdir: vi.fn(),
-  mockFsPromisesReaddir: vi.fn(),
-  mockFsPromisesRename: vi.fn(),
-  mockFsPromisesUnlink: vi.fn(),
-  mockOsArch: vi.fn(() => 'arm64'),
-}));
-
-// ── Module mocks ───────────────────────────────────────────────────
-vi.mock('@ossl/genesis-core', () => ({
-  runCommand: mockRunCommand,
-  getPlatform: mockGetPlatform,
-  createPackageManagerUpdateTask: mockCreatePkgUpdateTask,
-  createPackageInstallTask: mockCreatePkgInstallTask,
-}));
-
-vi.mock('node:os', () => ({
-  default: { arch: mockOsArch, tmpdir: () => '/tmp', homedir: () => '/home/testuser' },
-  arch: mockOsArch,
-  tmpdir: () => '/tmp',
-  homedir: () => '/home/testuser',
-}));
-
-vi.mock('node:fs', () => ({
-  default: {
-    promises: { mkdir: mockFsPromisesMkdir, readdir: mockFsPromisesReaddir, rename: mockFsPromisesRename, unlink: mockFsPromisesUnlink },
-    constants: { F_OK: 0 },
-  },
-  promises: { mkdir: mockFsPromisesMkdir, readdir: mockFsPromisesReaddir, rename: mockFsPromisesRename, unlink: mockFsPromisesUnlink },
-  constants: { F_OK: 0 },
-}));
-
-import { java, createPlugin } from './index.js';
-
-// ── Test helpers ───────────────────────────────────────────────────
-const mockLogger = { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() } as any;
-const mockTaskRegistry = {
-  register: vi.fn(),
-  executeAll: vi.fn().mockResolvedValue(new Map()),
-  has: vi.fn().mockReturnValue(false),
-} as any;
-const mockContext = { cwd: '/test', env: {}, logger: mockLogger, taskRegistry: mockTaskRegistry };
-
-function makeRuntime(overrides: Record<string, unknown> = {}) {
-  return {
-    instance: { id: 'test-java', category: 'language', module: 'java-plugin', options: {} },
-    options: { version: '17', distribution: 'openjdk', ...overrides },
-    context: mockContext,
-  };
+const success = { code: 0, stdout: "", stderr: 'openjdk version "17.0.9" 2023-10-17' };
+function runtime(version = "17") {
+  const instance = java({ version, install_dir: path.resolve("test-java") });
+  return { instance, options: instance.options, context: { cwd: process.cwd(), env: {} as NodeJS.ProcessEnv, logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() }, taskRegistry: {} as any } };
 }
-
-function ok(code: number, stdout: string, stderr = '') {
-  return { code, stdout, stderr };
-}
-
-// ── Tests ──────────────────────────────────────────────────────────
-describe('java plugin', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mockGetPlatform.mockReturnValue('macos');
-    mockOsArch.mockReturnValue('arm64');
-  });
-
-  describe('detect', () => {
-    it('returns ok:true when java -version matches major (Java 11+ style)', async () => {
-      mockRunCommand.mockResolvedValueOnce(ok(0, '', 'openjdk version "17.0.9" 2023-10-17\n'));
-      const plugin = createPlugin(java({ version: '17' }) as any);
-      const result = await plugin.detect!(makeRuntime());
-      expect(result.ok).toBe(true);
-      expect(result.details).toContain('Detected Java 17.0.9');
-    });
-
-    it('returns ok:true for Java 8 style version "1.8.0_202"', async () => {
-      mockRunCommand.mockResolvedValueOnce(ok(0, '', 'java version "1.8.0_202"\n'));
-      const plugin = createPlugin(java({ version: '1.8' }) as any);
-      const result = await plugin.detect!(makeRuntime({ version: '1.8' }));
-      expect(result.ok).toBe(true);
-    });
-
-    it('returns ok:false when Java not installed', async () => {
-      mockRunCommand.mockResolvedValueOnce(ok(1, '', 'java: command not found'));
-      const plugin = createPlugin(java({ version: '17' }) as any);
-      const result = await plugin.detect!(makeRuntime());
-      expect(result.ok).toBe(false);
-      expect(result.details).toBe('Java is not available on PATH');
-    });
-
-    it('returns ok:false on major version mismatch', async () => {
-      mockRunCommand.mockResolvedValueOnce(ok(0, '', 'openjdk version "11.0.21" 2023-10-17\n'));
-      const plugin = createPlugin(java({ version: '17' }) as any);
-      const result = await plugin.detect!(makeRuntime());
-      expect(result.ok).toBe(false);
-      expect(result.details).toContain('major 11');
-    });
-
-    it('returns ok:false when version is unparseable', async () => {
-      mockRunCommand.mockResolvedValueOnce(ok(0, '', 'Some weird output\n'));
-      const plugin = createPlugin(java({ version: '17' }) as any);
-      const result = await plugin.detect!(makeRuntime());
-      expect(result.ok).toBe(false);
-      expect(result.details).toBe('Java version could not be determined');
-    });
-
-    it('checks stdout as fallback when stderr empty', async () => {
-      mockRunCommand.mockResolvedValueOnce(ok(0, 'java version "17.0.9"\n', ''));
-      const plugin = createPlugin(java({ version: '17' }) as any);
-      const result = await plugin.detect!(makeRuntime());
-      expect(result.ok).toBe(true);
-    });
-
-    it('matches Java 8 major when requested version is "8"', async () => {
-      mockRunCommand.mockResolvedValueOnce(ok(0, '', 'java version "1.8.0_202"\n'));
-      const plugin = createPlugin(java({ version: '8' }) as any);
-      const result = await plugin.detect!(makeRuntime({ version: '8' }));
-      expect(result.ok).toBe(true);
-    });
-
-    it('fallback parsing for alt version format', async () => {
-      mockRunCommand.mockResolvedValueOnce(ok(0, '', 'OpenJDK Runtime Environment (build 17.0.9+9)\n'));
-      const plugin = createPlugin(java({ version: '17' }) as any);
-      const result = await plugin.detect!(makeRuntime());
-      expect(result.ok).toBe(true);
-    });
-  });
-
-  describe('apply', () => {
-    it('returns didChange:false when Java already installed', async () => {
-      mockRunCommand.mockResolvedValueOnce(ok(0, '', 'openjdk version "17.0.9"\n'));
-      const plugin = createPlugin(java({ version: '17' }) as any);
-      const result = await plugin.apply!(makeRuntime());
-      expect(result.ok).toBe(true);
-      expect(result.didChange).toBe(false);
-    });
-
-    it('installs OpenJDK from Adoptium on macOS (arm64)', async () => {
-      mockRunCommand.mockResolvedValueOnce(ok(1, '', ''));
-      mockRunCommand.mockResolvedValueOnce(ok(0, '', '')); // curl
-      mockRunCommand.mockResolvedValueOnce(ok(0, '', '')); // tar
-      mockFsPromisesReaddir.mockResolvedValueOnce(['jdk-17.0.9+7']);
-
-      const plugin = createPlugin(java({ version: '17.0.9' }) as any);
-      const result = await plugin.apply!(makeRuntime());
-      expect(result.ok).toBe(true);
-      expect(result.didChange).toBe(true);
-
-      const curlCall = mockRunCommand.mock.calls.find((c: string[]) => c[0] === 'curl')!;
-      expect(curlCall).toBeDefined();
-      expect(curlCall[1].some((a: string) => a.includes('aarch64'))).toBe(true);
-    });
-
-    it('installs OpenJDK on Linux (x64)', async () => {
-      mockGetPlatform.mockReturnValue('linux');
-      mockOsArch.mockReturnValue('x64');
-      mockRunCommand.mockResolvedValueOnce(ok(1, '', ''));
-      mockRunCommand.mockResolvedValueOnce(ok(0, '', ''));
-      mockRunCommand.mockResolvedValueOnce(ok(0, '', ''));
-      mockFsPromisesReaddir.mockResolvedValueOnce(['jdk-17.0.9+7']);
-
-      const plugin = createPlugin(java({ version: '17.0.9' }) as any);
-      const result = await plugin.apply!(makeRuntime());
-      expect(result.ok).toBe(true);
-
-      const curlCall = mockRunCommand.mock.calls.find((c: string[]) => c[0] === 'curl')!;
-      expect(curlCall).toBeDefined();
-      expect(curlCall[1].some((a: string) => a.includes('linux'))).toBe(true);
-    });
-
-    it('with oracle distribution prints manual download guide', async () => {
-      mockRunCommand.mockResolvedValueOnce(ok(1, '', ''));
-      const plugin = createPlugin(java({ version: '17', distribution: 'oracle' }) as any);
-      const result = await plugin.apply!(makeRuntime({ distribution: 'oracle' }));
-      expect(result.ok).toBe(false);
-      expect(result.didChange).toBe(false);
-      expect(result.details).toContain('manual download');
-    });
-
-    it('on Windows prints guide', async () => {
-      mockGetPlatform.mockReturnValue('windows');
-      mockRunCommand.mockResolvedValueOnce(ok(1, '', ''));
-      const plugin = createPlugin(java({ version: '17' }) as any);
-      const result = await plugin.apply!(makeRuntime());
-      expect(result.ok).toBe(false);
-      expect(result.didChange).toBe(false);
-      expect(result.details).toContain('Manual installation required');
-    });
-
-    it('returns failure when curl download fails', async () => {
-      mockRunCommand.mockResolvedValueOnce(ok(1, '', ''));
-      mockRunCommand.mockResolvedValueOnce(ok(1, '', 'download error'));
-      const plugin = createPlugin(java({ version: '17' }) as any);
-      const result = await plugin.apply!(makeRuntime());
-      expect(result.ok).toBe(false);
-      expect(result.didChange).toBe(false);
-    });
-  });
-
-  describe('validate', () => {
-    it('returns ok:true when Java is at correct version', async () => {
-      mockRunCommand.mockResolvedValueOnce(ok(0, '', 'openjdk version "17.0.9"\n'));
-      const plugin = createPlugin(java({ version: '17' }) as any);
-      const result = await plugin.validate!(makeRuntime());
-      expect(result.ok).toBe(true);
-    });
-
-    it('returns ok:false when Java is missing', async () => {
-      mockRunCommand.mockResolvedValueOnce(ok(1, '', ''));
-      const plugin = createPlugin(java({ version: '17' }) as any);
-      const result = await plugin.validate!(makeRuntime());
-      expect(result.ok).toBe(false);
-    });
-  });
-
-  describe('registerTasks', () => {
-    beforeEach(() => { mockRunCommand.mockResolvedValue(ok(1, '', 'missing')); });
-    it('registers update, curl, and tar on macOS/Linux', async () => {
-      mockCreatePkgUpdateTask.mockReturnValue({ id: 'update' });
-      mockCreatePkgInstallTask.mockReturnValue({ id: 'pkg' });
-      const plugin = createPlugin(java({ version: '17' }) as any);
-      await plugin.registerTasks!(makeRuntime());
-      expect(mockCreatePkgInstallTask).toHaveBeenCalledWith('curl', '/test', {});
-      expect(mockCreatePkgInstallTask).toHaveBeenCalledWith('tar', '/test', {});
-      expect(mockTaskRegistry.register).toHaveBeenCalledTimes(3);
-    });
-
-    it('skips registration on Windows', async () => {
-      mockGetPlatform.mockReturnValue('windows');
-      const plugin = createPlugin(java({ version: '17' }) as any);
-      await plugin.registerTasks!(makeRuntime());
-      expect(mockTaskRegistry.register).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('java factory', () => {
-    it('sets id, category, module, and default distribution', () => {
-      const inst = java({ version: '17' });
-      expect(inst.id).toBe('java');
-      expect(inst.category).toBe('language');
-      expect(inst.module).toBe('@ossl/genesis-plugins/java');
-      expect(inst.options.distribution).toBe('openjdk');
-    });
-
-    it('respects explicit distribution option', () => {
-      const inst = java({ version: '17', distribution: 'oracle' });
-      expect(inst.options.distribution).toBe('oracle');
-    });
-  });
+beforeEach(() => {
+  vi.resetAllMocks();
+  mocks.platform.mockReturnValue("linux");
+  mocks.exists.mockReturnValue(false);
+  mocks.run.mockResolvedValue(success);
+  mocks.release.mockResolvedValue({ url: "https://example.com/jdk", sha256: "a".repeat(64), format: "tar.gz" });
 });
 
-
-it('skips prerequisite registration when the desired runtime is already present', async () => {
-  vi.clearAllMocks();
-  mockRunCommand.mockReset();
-  mockGetPlatform.mockReturnValue('macos');
-  mockRunCommand.mockResolvedValue(ok(0, 'openjdk version "17.0.9"'));
-  const instance = java({ version: "17" });
-  const runtime = makeRuntime({ ...instance.options });
-  await createPlugin(instance).registerTasks!(runtime);
-  expect(mockTaskRegistry.register).not.toHaveBeenCalled();
+describe("Java", () => {
+  it.each(['17', '17.0', '17.0.9'])("matches the requested %s components", async version => {
+    const rt = runtime(version);
+    expect(await createPlugin(rt.instance).apply!(rt)).toMatchObject({ ok: true, didChange: false });
+    expect(mocks.install).not.toHaveBeenCalled();
+  });
+  it.each(['1.8', '8'])("recognizes legacy Java 8 for %s", async version => {
+    mocks.run.mockResolvedValue({ ...success, stderr: 'java version "1.8.0_202"' });
+    const rt = runtime(version);
+    expect((await createPlugin(rt.instance).detect!(rt)).ok).toBe(true);
+  });
+  it("recognizes versions with no minor/patch", async () => {
+    mocks.run.mockResolvedValue({ ...success, stderr: 'openjdk version "17"' });
+    const rt = runtime();
+    expect((await createPlugin(rt.instance).detect!(rt)).ok).toBe(true);
+  });
+  it.each(["macos", "linux", "windows"])("installs and exposes JAVA_HOME on %s", async platform => {
+    mocks.platform.mockReturnValue(platform);
+    mocks.run.mockResolvedValueOnce({ code: 1, stdout: "", stderr: "missing" });
+    mocks.install.mockImplementation(async options => {
+      const selected = await options.select(path.resolve("unpack"));
+      expect(selected).toBe(path.resolve("unpack", "jdk", ...(platform === "macos" ? ["Contents", "Home"] : [])));
+      await options.verify(selected);
+    });
+    const rt = runtime();
+    expect(await createPlugin(rt.instance).apply!(rt)).toMatchObject({ ok: true, didChange: true });
+    expect(rt.context.env.JAVA_HOME).toBe(rt.options.install_dir);
+    expect(rt.context.env.PATH).toBe(path.join(rt.options.install_dir!, "bin"));
+  });
+  it("rejects a mismatched patch instead of only checking the major", async () => {
+    const rt = runtime('17.0.8');
+    expect((await createPlugin(rt.instance).validate!(rt)).ok).toBe(false);
+  });
+  it("rejects failed staged verification", async () => {
+    mocks.run.mockResolvedValue({ code: 1, stdout: "", stderr: "missing" });
+    mocks.install.mockImplementation(async options => { await options.verify(path.resolve("stage")); });
+    const rt = runtime();
+    expect((await createPlugin(rt.instance).apply!(rt)).ok).toBe(false);
+  });
+  it("does not install Oracle JDK automatically", async () => {
+    mocks.run.mockResolvedValue({ code: 1, stdout: "", stderr: "missing" });
+    const rt = runtime(); rt.options.distribution = "oracle";
+    expect(await createPlugin(rt.instance).apply!(rt)).toMatchObject({ ok: false, details: expect.stringContaining("license") });
+    expect(mocks.release).not.toHaveBeenCalled();
+  });
+  it("discovers a managed install and exports its environment", async () => {
+    mocks.exists.mockReturnValue(true);
+    const rt = runtime();
+    expect((await createPlugin(rt.instance).detect!(rt)).ok).toBe(true);
+    expect(rt.context.env.JAVA_HOME).toBe(rt.options.install_dir);
+  });
 });

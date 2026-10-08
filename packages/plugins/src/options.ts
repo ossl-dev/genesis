@@ -1,4 +1,7 @@
 import { z } from "zod";
+import path from "node:path";
+
+const installDirectory = z.string().min(1).refine(value => path.isAbsolute(value) && value !== path.parse(value).root, "Expected an absolute installation directory, not a filesystem root").optional();
 
 const version = z.string().regex(/^\d+(?:\.\d+){0,2}$/, "Expected a numeric version such as 22 or 3.11.9");
 const packages = z.array(z.string().regex(/^[^-\s][^\s]*$/, "Expected a package name, not a command option"));
@@ -10,8 +13,8 @@ export const optionSchemas = {
     global_packages: packages.optional(),
   }).strict(),
   python: z.object({ version }).strict(),
-  go: z.object({ version: z.string().regex(/^\d+\.\d+\.\d+$/, "Go archive installation requires a full version such as 1.22.5") }).strict(),
-  java: z.object({ version, distribution: z.enum(["openjdk", "oracle"]).default("openjdk") }).strict(),
+  go: z.object({ version: z.string().regex(/^\d+\.\d+\.\d+$/, "Go archive installation requires a full version such as 1.22.5"), install_dir: installDirectory }).strict(),
+  java: z.object({ version, distribution: z.enum(["openjdk", "oracle"]).default("openjdk"), install_dir: installDirectory }).strict(),
   git: z.object({
     version: z.union([version, z.literal("latest")]).default("latest"),
     install_method: z.enum(["package", "source", "binary"]).default("package"),

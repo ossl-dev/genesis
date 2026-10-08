@@ -4,7 +4,7 @@ Things to build, fix, and improve. Checked boxes mean implemented in this reposi
 
 ## Next priorities
 
-1. Make host installation recoverable: staged Go/Java extraction, correct Java/Git release resolution, and version pinning in Docker installers.
+1. Extend verified staged installation beyond Go/Java; correct Git release resolution and version pinning in Docker installers.
 2. Validate Homebrew bootstrap and update behavior on disposable macOS hosts.
 3. Add real installer checks in disposable environments, then implement Linux package-manager selection and Windows installers.
 4. Finish local cache persistence/restore before cloud sync or standalone distribution.
@@ -73,7 +73,7 @@ Make existing stuff faster, safer, more portable.
 
 ### Platform support
 
-- [ ] **Windows** — every plugin currently falls back to printing manual install guides. Implement native installers for Node, Python, and Git through supported Windows package/version managers.
+- [ ] **Windows** — Go/Java archive installers are implemented. Add native installers for Node, Python, and Git through supported Windows package/version managers.
 - [ ] **Linux** — test on Debian, Fedora, Arch. Shared system tasks currently hardcode APT; implement distribution/package-manager selection and package mappings.
 - [ ] **aarch64 / ARM** — Go and Docker Desktop map ARM64 correctly. Add real ARM installer checks and reject unsupported architectures rather than falling back to x64.
 - [x] `genesis doctor` detects and validates configured plugins with nonzero failure exits
@@ -197,8 +197,8 @@ Not triaged into phases. Fix anytime.
 - [x] Compare version components instead of accepting misleading string prefixes.
 - [x] Make installed NVM Node available to subsequent commands and install global packages after runtime setup.
 - [x] Detect modern Docker Compose, use Debian repository URLs, and check daemon availability without pulling a test image.
-- [ ] Resolve Java archive releases and build numbers; stage extraction without selecting unrelated JDK directories.
-- [ ] Replace Go installations through staged extraction with recovery on failure.
+- [x] Resolve Java archive releases and build numbers; stage extraction without selecting unrelated JDK directories.
+- [x] Replace Go installations through staged extraction with recovery on failure.
 - [ ] Enforce version selection in Git source/binary and Docker installation paths.
 - [x] Propagate Homebrew update/upgrade failures and bootstrap brew before shared system tasks.
 

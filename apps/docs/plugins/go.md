@@ -1,15 +1,18 @@
 # Go Plugin
 
-Status: detection and archive installation implemented on macOS/Linux. Windows installation is manual.
+Status: archive installation for macOS, Linux, and Windows on x64/ARM64. Unsupported architectures and unavailable releases fail explicitly.
 
 ```yaml
 languages:
   - type: go
     version: "1.22.5"
+    # install_dir: "${HOME}/.local/share/genesis/go"
 ```
 
-Import `go({ version })` from `@ossl/genesis-plugins/go`. Archive installation requires a complete numeric version, including the patch. Matching installations skip system prerequisites.
+Import `go(options)` from `@ossl/genesis-plugins/go`.
 
-Detection checks `go version`. Installation downloads from `go.dev` for the host OS and architecture: x64 maps to amd64 and ARM64 to arm64. It extracts into `/usr/local/go`, which requires filesystem permissions. Genesis does not acquire elevated privileges for extraction.
+`version` requires a full numeric release. `install_dir` is an optional absolute directory, owned by this installation. The default is `/usr/local/go` on macOS/Linux and `%USERPROFILE%/.genesis/go` on Windows. System paths require write permissions; Genesis does not elevate archive filesystem operations.
 
-The plugin prints PATH instructions for `/usr/local/go/bin`; it does not persist shell profile changes. An existing installation can be replaced, and failed extraction has no automatic rollback. Use detection/validation with preinstalled Go when elevated provisioning is unsuitable.
+The installer resolves the official Go archive and SHA-256, downloads into unique staging, extracts with `tar` (Windows ZIPs use Windows tar), and verifies `bin/go version` before replacing an existing install. Promotion or relocated verification failure restores the previous directory. Recovery failure retains the backup path in the error; a process crash can leave staging and an installation lock for manual recovery.
+
+Managed installations are rediscovered on later runs. The bin directory reaches subsequent Genesis commands through runtime `PATH`; add it to your shell PATH for future sessions. No shell profiles are edited. Matching versions skip installation entirely. Tests include real temporary archive extraction and recovery; see [Platform Support](/guide/platform-support) for installer validation limits.

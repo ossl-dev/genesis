@@ -14,6 +14,6 @@ Go and Java extraction requires permissions for system directories. The code doe
 
 On macOS, include the Homebrew plugin to bootstrap brew before shared system tasks, or provide an existing brew installation.
 
-Go downloads map x64 to amd64 and ARM64 to arm64. Docker Desktop downloads select ARM64/x64. Other architectures and installer paths are not comprehensively verified. See each [plugin reference](/plugins/overview).
+Go and Java use checksummed staged archives on macOS/Linux/Windows, reject unsupported CPU architectures, and restore the previous directory if promotion fails. Docker Desktop downloads select ARM64/x64. Installer coverage still needs disposable hosts across platforms. See each [plugin reference](/plugins/overview).
 
 Configured environment values only affect Genesis and child commands. Shell profile changes are generally printed as instructions rather than persisted. Rollback and project isolation are not implemented.

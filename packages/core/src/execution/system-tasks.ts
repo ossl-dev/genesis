@@ -1,181 +1,82 @@
-/**
- * System-level task definitions for common operations
- * 
- * This module provides pre-defined tasks for common system operations
- * that should be deduplicated across plugins.
- */
-
 import { type Task, type TaskId } from "./task-registry.js";
 import { runCommand } from "../os/shell.js";
 import { getPlatform } from "../os/platform.js";
+import { getLinuxDistribution } from "../os/linux.js";
 
-/**
- * Create a task ID for package manager operations
- */
-export function createPackageManagerTaskId(
-  operation: "update" | "install",
-  packageName?: string
-): TaskId {
+type PackageManager = "brew" | "apt" | "dnf" | "pacman" | "apk" | "choco";
+
+function getPackageManager(): PackageManager {
   const platform = getPlatform();
-  const pkgManager = getPackageManager(platform);
-  
-  if (operation === "update") {
-    return `${platform}:package-manager:${pkgManager}-update`;
+  if (platform === "macos") return "brew";
+  if (platform === "windows") return "choco";
+  const { id, like } = getLinuxDistribution();
+  for (const candidate of [id, ...like]) {
+    if (["debian", "ubuntu"].includes(candidate)) return "apt";
+    if (["fedora", "rhel", "centos", "rocky", "almalinux"].includes(candidate)) return "dnf";
+    if (candidate === "arch") return "pacman";
+    if (candidate === "alpine") return "apk";
   }
-  
-  return `${platform}:package-manager:${pkgManager}-install:${packageName}`;
+  throw new Error(`Unsupported Linux package manager for ${id}`);
 }
 
-/**
- * Get the default package manager for a platform
- */
-function getPackageManager(platform: string): string {
-  switch (platform) {
-    case "macos":
-      return "brew";
-    case "linux":
-      return "apt"; // Default to apt, could be enhanced to detect yum, dnf, etc.
-    case "windows":
-      return "choco"; // Chocolatey
-    default:
-      return "unknown";
-  }
+function taskId(manager: PackageManager, operation: "update" | "install", packageName?: string): TaskId {
+  return `${getPlatform()}:package-manager:${manager}-${operation}${operation === "install" ? `:${packageName}` : ""}`;
 }
 
-/**
- * Create a task for updating package manager cache
- */
+export function createPackageManagerTaskId(operation: "update" | "install", packageName?: string): TaskId {
+  return taskId(getPackageManager(), operation, packageName);
+}
+
+const linuxPackages: Record<string, Partial<Record<PackageManager, string[]>>> = {
+  "build-essential": { dnf: ["gcc", "gcc-c++", "make"], pacman: ["base-devel"], apk: ["build-base"] },
+  "libssl-dev": { dnf: ["openssl-devel"], pacman: ["openssl"], apk: ["openssl-dev"] },
+  "libcurl4-openssl-dev": { dnf: ["libcurl-devel"], pacman: ["curl"], apk: ["curl-dev"] },
+  "zlib1g-dev": { dnf: ["zlib-devel"], pacman: ["zlib"], apk: ["zlib-dev"] },
+  "libexpat1-dev": { dnf: ["expat-devel"], pacman: ["expat"], apk: ["expat-dev"] },
+  gnupg: { dnf: ["gnupg2"] },
+};
+
+function commandTask(id: TaskId, description: string, command: string, args: string[], cwd: string, env: NodeJS.ProcessEnv, dependsOn?: TaskId[]): Task {
+  const linux = getPlatform() === "linux";
+  const needsSudo = linux && process.getuid?.() !== 0;
+  return {
+    id, description, priority: dependsOn ? 50 : 100, dependsOn,
+    async executor() {
+      try {
+        const result = await runCommand(needsSudo ? "sudo" : command, needsSudo ? [command, ...args] : args, { cwd, env });
+        return result.code === 0
+          ? { ok: true, details: description }
+          : { ok: false, error: result.stderr || `${description} failed` };
+      } catch (error) {
+        return { ok: false, error: error instanceof Error ? error.message : String(error) };
+      }
+    },
+  };
+}
+
 export function createPackageManagerUpdateTask(cwd: string, env: NodeJS.ProcessEnv): Task {
-  const platform = getPlatform();
-  const taskId = createPackageManagerTaskId("update");
-
-  let command: string;
-  let args: string[];
-  let description: string;
-  let requiresSudo = false;
-
-  switch (platform) {
-    case "macos":
-      command = "brew";
-      args = ["update"];
-      description = "Update Homebrew package index";
-      break;
-
-    case "linux":
-      command = "sudo";
-      args = ["apt-get", "update", "-y"];
-      description = "Update APT package index";
-      requiresSudo = true;
-      break;
-
-    case "windows":
-      command = "choco";
-      args = ["upgrade", "all", "-y"];
-      description = "Update Chocolatey packages";
-      break;
-
-    default:
-      throw new Error(`Unsupported platform: ${platform}`);
+  const manager = getPackageManager();
+  const id = taskId(manager, "update");
+  // Neither manager has a safe cache-only refresh: pacman -Sy permits partial
+  // upgrades, and Chocolatey resolves metadata during each install.
+  if (manager === "pacman" || manager === "choco") {
+    return { id, description: `Use existing ${manager} package index`, priority: 100,
+      executor: async () => ({ ok: true, details: manager === "pacman" ? "Using existing pacman database; maintain the host with pacman -Syu before provisioning" : "Chocolatey resolves packages during installation" }) };
   }
-
-  return {
-    id: taskId,
-    description,
-    priority: 100, // High priority - should run before installs
-    executor: async () => {
-      try {
-        const result = await runCommand(command, args, { cwd, env });
-        
-        if (result.code === 0) {
-          return {
-            ok: true,
-            details: `Package manager updated successfully`,
-          };
-        }
-
-        return {
-          ok: false,
-          error: result.stderr || "Package manager update failed",
-          details: result.stderr,
-        };
-      } catch (error) {
-        return {
-          ok: false,
-          error: (error as Error).message,
-        };
-      }
-    },
-  };
+  const command = manager === "apt" ? "apt-get" : manager;
+  return commandTask(id, `Update ${manager} package index`, command, [manager === "dnf" ? "makecache" : "update"], cwd, env);
 }
 
-/**
- * Create a task for installing a system package
- */
-export function createPackageInstallTask(
-  packageName: string,
-  cwd: string,
-  env: NodeJS.ProcessEnv
-): Task {
-  const platform = getPlatform();
-  const taskId = createPackageManagerTaskId("install", packageName);
-  const updateTaskId = createPackageManagerTaskId("update");
-
-  let command: string;
-  let args: string[];
-  let description: string;
-
-  switch (platform) {
-    case "macos":
-      command = "brew";
-      args = ["install", packageName];
-      description = `Install ${packageName} via Homebrew`;
-      break;
-
-    case "linux":
-      command = "sudo";
-      args = ["apt-get", "install", "-y", packageName];
-      description = `Install ${packageName} via APT`;
-      break;
-
-    case "windows":
-      command = "choco";
-      args = ["install", packageName, "-y"];
-      description = `Install ${packageName} via Chocolatey`;
-      break;
-
-    default:
-      throw new Error(`Unsupported platform: ${platform}`);
-  }
-
-  return {
-    id: taskId,
-    description,
-    priority: 50, // Medium priority
-    dependsOn: [updateTaskId], // Ensure package manager is updated first
-    executor: async () => {
-      try {
-        const result = await runCommand(command, args, { cwd, env });
-        
-        if (result.code === 0) {
-          return {
-            ok: true,
-            details: `${packageName} installed successfully`,
-          };
-        }
-
-        return {
-          ok: false,
-          error: result.stderr || `Failed to install ${packageName}`,
-          details: result.stderr,
-        };
-      } catch (error) {
-        return {
-          ok: false,
-          error: (error as Error).message,
-        };
-      }
-    },
-  };
+export function createPackageInstallTask(packageName: string, cwd: string, env: NodeJS.ProcessEnv): Task {
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9@+_.:/-]*$/.test(packageName)) throw new Error(`Invalid system package name: ${packageName}`);
+  const manager = getPackageManager();
+  const packages = linuxPackages[packageName]?.[manager] ?? [packageName];
+  const args = manager === "pacman" ? ["-S", "--needed", "--noconfirm", ...packages]
+    : manager === "apk" ? ["add", ...packages]
+    : manager === "brew" ? ["install", ...packages]
+    : manager === "choco" ? ["install", ...packages, "-y"]
+    : ["install", "-y", ...packages];
+  return commandTask(taskId(manager, "install", packageName), `Install ${packages.join(", ")} via ${manager}`, manager === "apt" ? "apt-get" : manager, args, cwd, env, [taskId(manager, "update")]);
 }
 
 /**

@@ -6,7 +6,8 @@ CI runs unit and local integration tests on macOS, Linux, and Windows. Installer
 | --- | --- |
 | macOS | brew prerequisites; NVM/archive Node; Python/Git packages; Colima; verified staged Go/Java/Bun/Deno archives; pnpm/Yarn prefixes. |
 | Debian/Ubuntu | APT prerequisites; NVM/archive Node; Python/Git packages; Docker installer; Go archive. Required package versions must exist. |
-| Fedora/CentOS | Docker installer branch exists, but shared prerequisites still invoke APT. Incomplete. |
+| Fedora/RHEL family | DNF prerequisites and common build dependency mappings. Individual runtime/package availability varies. |
+| Arch / Alpine | pacman / APK prerequisites. Arch requires an already maintained package database; archive runtime libc restrictions still apply. |
 | Arch | Shared package tasks do not select pacman. Incomplete. |
 | Windows | Node/Go/Java/Bun/Deno archives and pnpm/Yarn prefixes; Python/Git/Docker setup still manual. Scripts use cmd.exe. |
 

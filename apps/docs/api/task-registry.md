@@ -40,4 +40,6 @@ Dependencies override priority. Higher priority runs first among the traversal's
 
 Install tasks depend on the update task: register both. Dependency IDs must match exactly; wildcards are not resolved. Custom task IDs are prefixed with the platform and `custom:`.
 
-Shared tasks use brew on macOS, APT on Linux, and Chocolatey on Windows. Package names are not translated across distributions. The current Windows update helper upgrades all Chocolatey packages, rather than just refreshing metadata; built-in Windows installers skip this path.
+Shared tasks use brew on macOS, Chocolatey on Windows, and APT/DNF/pacman/APK selected from Linux `os-release`. Common build dependencies are mapped to distribution packages. Unknown distributions and invalid package names are rejected. Linux root processes run without sudo.
+
+Update tasks refresh metadata for brew/APT/DNF/APK. pacman uses its existing database; update Arch hosts with `pacman -Syu` before provisioning. Chocolatey needs no separate refresh. These tasks never upgrade the whole host.

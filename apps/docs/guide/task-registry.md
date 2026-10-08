@@ -14,6 +14,8 @@ The install helper depends on the update ID, so both must be registered. Missing
 
 Task dependencies take precedence over priority. Completed results are reused if executeAll is called again. Create a fresh registry for each apply, and do not run a registry concurrently.
 
-Shared Linux helpers currently use APT. macOS helpers use brew; including Homebrew in the config bootstraps it during `prepare`. Platform-specific installers must choose appropriate package names; the registry does not discover distribution package mappings.
+Shared Linux helpers select APT, DNF, pacman, or APK from `ID`/`ID_LIKE` in `os-release`, and translate common build dependencies. Unknown distributions fail before running commands. macOS uses brew; including Homebrew in the config bootstraps it during `prepare`. Windows uses Chocolatey.
+
+Metadata updates never upgrade all installed packages. Arch uses the existing pacman database to avoid partial upgrades; maintain the host with `pacman -Syu` before provisioning. Chocolatey resolves metadata during installation. Linux commands omit sudo when already running as root.
 
 Global Node/Homebrew packages run after those tools are ready, rather than as prerequisites. See [Lifecycle](/plugins/lifecycle) and [Task API](/api/task-registry).

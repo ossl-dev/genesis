@@ -75,7 +75,7 @@ Make existing stuff faster, safer, more portable.
 ### Platform support
 
 - [ ] **Windows** — Node/Go/Java/Bun/Deno archive installers and pnpm/Yarn npm prefixes are implemented. Add native Python and Git installers.
-- [ ] **Linux** — test on Debian, Fedora, Arch. Shared system tasks currently hardcode APT; implement distribution/package-manager selection and package mappings.
+- [ ] **Linux** — test on Debian, Fedora, Arch. APT/DNF/pacman/APK selection and common build dependency mappings are implemented; add real disposable distribution tests and verify plugin-specific package availability.
 - [ ] **aarch64 / ARM** — Go and Docker Desktop map ARM64 correctly. Add real ARM installer checks and reject unsupported architectures rather than falling back to x64.
 - [x] `genesis doctor` detects and validates configured plugins with nonzero failure exits
 - [ ] Add config-free host diagnostics and prerequisite inventory to doctor

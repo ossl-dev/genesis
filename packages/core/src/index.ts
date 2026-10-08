@@ -15,3 +15,4 @@ export * from "./cache/environment-cache.js";
 export * from "./fs/paths.js";
 export * from "./execution/environment.js";
 export * from "./plugins/catalog.js";
+export * from "./os/linux.js";

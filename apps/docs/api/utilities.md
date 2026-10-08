@@ -42,3 +42,5 @@ logger.error("failure");
 ```
 
 Levels are `debug`, `info`, `warn`, and `error`. Color defaults to TTY support and respects a nonempty `NO_COLOR`. Logging does not control process exit status.
+
+`runCommand` also accepts an optional `timeout` in milliseconds. A timed-out child returns a nonzero code and an explanatory error when stderr is empty. Docker daemon checks use a 15-second timeout.

@@ -1,297 +1,143 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-
-// ── Mock variables ─────────────────────────────────────────────────
-const { mockRunCommand, mockGetPlatform, mockCreatePkgUpdateTask, mockCreatePkgInstallTask, mockFsReadFile, mockFsPromisesUnlink } = vi.hoisted(() => ({
-  mockRunCommand: vi.fn(),
-  mockGetPlatform: vi.fn(() => 'macos'),
-  mockCreatePkgUpdateTask: vi.fn(),
-  mockCreatePkgInstallTask: vi.fn(),
-  mockFsReadFile: vi.fn(),
-  mockFsPromisesUnlink: vi.fn(),
-}));
-
-// ── Module mocks ───────────────────────────────────────────────────
-vi.mock('@ossl/genesis-core', () => ({
-  runCommand: mockRunCommand,
-  getPlatform: mockGetPlatform,
-  createPackageManagerUpdateTask: mockCreatePkgUpdateTask,
-  createPackageInstallTask: mockCreatePkgInstallTask,
-}));
-
-vi.mock('node:os', () => ({
-  default: { arch: () => 'arm64', tmpdir: () => '/tmp', homedir: () => '/home/testuser' },
-  arch: () => 'arm64',
-  tmpdir: () => '/tmp',
-  homedir: () => '/home/testuser',
-}));
-
-vi.mock('node:fs', () => ({
-  default: { promises: { readFile: mockFsReadFile, unlink: mockFsPromisesUnlink }, constants: { F_OK: 0 } },
-  promises: { readFile: mockFsReadFile, unlink: mockFsPromisesUnlink },
-  constants: { F_OK: 0 },
-}));
-
-import { docker, createPlugin } from './index.js';
-
-// ── Test helpers ───────────────────────────────────────────────────
-const mockLogger = { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() } as any;
-const mockTaskRegistry = {
-  register: vi.fn(),
-  executeAll: vi.fn().mockResolvedValue(new Map()),
-  has: vi.fn().mockReturnValue(false),
-} as any;
-const mockContext = { cwd: '/test', env: {}, logger: mockLogger, taskRegistry: mockTaskRegistry };
-
-function makeRuntime(overrides: Record<string, unknown> = {}) {
-  return {
-    instance: { id: 'test-docker', category: 'tool', module: 'docker-plugin', options: {} },
-    options: { version: 'latest', include_compose: true, install_desktop: false, ...overrides },
-    context: mockContext,
-  };
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+const mocks = vi.hoisted(() => ({ run: vi.fn(), platform: vi.fn(), install: vi.fn(), distro: vi.fn(), update: vi.fn(), pkg: vi.fn() }));
+vi.mock("@ossl/genesis-core", () => ({ runCommand: mocks.run, getPlatform: mocks.platform, createPackageManagerUpdateTask: mocks.update, createPackageInstallTask: mocks.pkg }));
+vi.mock("../../install/docker-linux.js", () => ({ installDockerLinux: mocks.install, dockerDistribution: mocks.distro }));
+import { docker, createPlugin, type DockerOptions } from "./index.js";
+const ok = (stdout = "", code = 0) => ({ code, stdout, stderr: code ? "unavailable" : "" });
+function setup(options: DockerOptions = {}) {
+  const instance = docker(options), plugin = createPlugin(instance);
+  const runtime = { instance, options: plugin.parseOptions!(instance.options), context: { cwd: "/work", env: { PATH: "/tools" }, logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }, taskRegistry: { register: vi.fn() } as any } };
+  return { plugin, runtime };
 }
-
-function ok(code: number, stdout: string, stderr = '') {
-  return { code, stdout, stderr };
+function available(compose = true, daemon = true) {
+  mocks.run.mockImplementation(async (command, args) => {
+    if (command === "docker" && args[0] === "--version") return ok("Docker version 29.1.0, build 123");
+    if (command === "docker" && args[0] === "compose" && compose) return ok("Docker Compose version v2.40.0");
+    if (command === "docker" && args[0] === "info" && daemon) return ok("29.1.0");
+    return ok("", 1);
+  });
 }
+beforeEach(() => { vi.resetAllMocks(); mocks.platform.mockReturnValue("linux"); mocks.run.mockResolvedValue(ok("", 1)); mocks.update.mockReturnValue({ id: "update" }); mocks.pkg.mockReturnValue({ id: "pkg" }); });
+afterEach(() => vi.restoreAllMocks());
 
-// ── Tests ──────────────────────────────────────────────────────────
-describe('docker plugin', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mockGetPlatform.mockReturnValue('macos');
+it("validates options before installation", () => {
+  expect(() => createPlugin(docker()).parseOptions!({ version: "29;bad" })).toThrow();
+});
+it("detects a matching client and Compose", async () => {
+  available();
+  const { plugin, runtime } = setup({ version: "29.1" });
+  expect((await plugin.detect!(runtime)).ok).toBe(true);
+});
+it("does not accept component-prefix version collisions", async () => {
+  available();
+  const { plugin, runtime } = setup({ version: "2" });
+  expect((await plugin.detect!(runtime)).ok).toBe(false);
+});
+it("does not require Compose when disabled", async () => {
+  available(false);
+  const { plugin, runtime } = setup({ include_compose: false });
+  expect((await plugin.detect!(runtime)).ok).toBe(true);
+  expect(mocks.run).toHaveBeenCalledTimes(1);
+});
+it.each(["docker-compose version 1.29.2, build 123", "Docker Compose version v2.40.0"])("recognizes legacy fallback output %s", async output => {
+  mocks.run.mockResolvedValueOnce(ok("Docker version 29.1.0")).mockResolvedValueOnce(ok("", 1)).mockResolvedValueOnce(ok(output));
+  const { plugin, runtime } = setup();
+  expect((await plugin.detect!(runtime)).ok).toBe(true);
+  expect(mocks.run).toHaveBeenLastCalledWith("docker-compose", ["--version"], { cwd: "/work", env: runtime.context.env });
+});
+it("falls back when a successful Compose subcommand returns malformed output", async () => {
+  mocks.run.mockResolvedValueOnce(ok("Docker version 29.1.0")).mockResolvedValueOnce(ok("bad")).mockResolvedValueOnce(ok("docker-compose version 1.29.2"));
+  const { plugin, runtime } = setup();
+  expect((await plugin.detect!(runtime)).ok).toBe(true);
+});
+it("validates the daemon even when the CLI already exists", async () => {
+  available(true, false);
+  const { plugin, runtime } = setup();
+  expect(await plugin.apply!(runtime)).toMatchObject({ ok: false, didChange: false, details: expect.stringContaining("daemon is unavailable") });
+  expect((await plugin.validate!(runtime)).ok).toBe(false);
+  expect(mocks.install).not.toHaveBeenCalled();
+});
+it("checks the daemon version separately from the client", async () => {
+  available();
+  const run = mocks.run.getMockImplementation()!;
+  mocks.run.mockImplementation((command, args) => args[0] === "info" ? Promise.resolve(ok("28.5.1")) : run(command, args));
+  const { plugin, runtime } = setup({ version: "29.1" });
+  expect(await plugin.apply!(runtime)).toMatchObject({ ok: false, didChange: false, details: expect.stringContaining("daemon 28.5.1") });
+});
+it("skips matching installations and package work", async () => {
+  available();
+  const { plugin, runtime } = setup();
+  await plugin.prepare!(runtime);
+  await plugin.registerTasks!(runtime);
+  expect(runtime.context.taskRegistry.register).not.toHaveBeenCalled();
+  expect(await plugin.apply!(runtime)).toMatchObject({ ok: true, didChange: false });
+});
+it.each(["windows", "macos"])("rejects unsupported pins before tasks on %s", async platform => {
+  mocks.platform.mockReturnValue(platform);
+  const { plugin, runtime } = setup({ version: "29.1" });
+  await expect(plugin.prepare!(runtime)).rejects.toThrow();
+  await plugin.registerTasks!(runtime);
+  expect(runtime.context.taskRegistry.register).not.toHaveBeenCalled();
+  expect(await plugin.apply!(runtime)).toMatchObject({ ok: false, didChange: false });
+});
+it("reports Desktop setup as manual without downloading an unverified DMG", async () => {
+  mocks.platform.mockReturnValue("macos");
+  const { plugin, runtime } = setup({ install_desktop: true });
+  expect(await plugin.apply!(runtime)).toMatchObject({ ok: false, didChange: false, details: expect.stringContaining("manually") });
+  expect(mocks.run.mock.calls.every(call => call[0] === "docker")).toBe(true);
+});
+it("fails unsupported distributions before registering packages", async () => {
+  mocks.distro.mockImplementation(() => { throw new Error("Unsupported Linux distribution"); });
+  const { plugin, runtime } = setup();
+  await expect(plugin.prepare!(runtime)).rejects.toThrow("Unsupported");
+  await expect(plugin.registerTasks!(runtime)).rejects.toThrow("Unsupported");
+  expect(runtime.context.taskRegistry.register).not.toHaveBeenCalled();
+});
+it("does not reinstall Homebrew packages while starting Colima", async () => {
+  mocks.platform.mockReturnValue("macos");
+  mocks.run.mockResolvedValueOnce(ok("", 1)).mockImplementation(async command => {
+    if (command === "colima") { available(); return ok(); }
+    return ok("", 1);
   });
-
-  describe('detect', () => {
-    it('returns ok:true when docker --version succeeds (with compose)', async () => {
-      mockRunCommand.mockResolvedValueOnce(ok(0, 'Docker version 26.1.0, build abc123\n'));
-      mockRunCommand.mockResolvedValueOnce(ok(0, 'Docker Compose version v2.27.0\n'));
-      const plugin = createPlugin(docker() as any);
-      const result = await plugin.detect!(makeRuntime());
-      expect(result.ok).toBe(true);
-      expect(result.details).toContain('Detected Docker 26.1.0');
-      expect(result.details).toContain('Docker Compose 2.27.0');
-    });
-
-    it('returns ok:false when docker not installed', async () => {
-      mockRunCommand.mockResolvedValueOnce(ok(1, '', 'docker: command not found'));
-      const plugin = createPlugin(docker() as any);
-      const result = await plugin.detect!(makeRuntime());
-      expect(result.ok).toBe(false);
-      expect(result.details).toBe('Docker is not available on PATH');
-    });
-
-    it('returns ok:false when version is unparseable', async () => {
-      mockRunCommand.mockResolvedValueOnce(ok(0, 'Something else\n'));
-      const plugin = createPlugin(docker() as any);
-      const result = await plugin.detect!(makeRuntime());
-      expect(result.ok).toBe(false);
-      expect(result.details).toBe('Docker version could not be determined');
-    });
-
-    it('checks specific version match (with compose)', async () => {
-      mockRunCommand.mockResolvedValueOnce(ok(0, 'Docker version 26.1.0, build abc123\n'));
-      mockRunCommand.mockResolvedValueOnce(ok(0, 'Docker Compose version v2.27.0\n'));
-      const plugin = createPlugin(docker({ version: '26.1.0' }) as any);
-      const result = await plugin.detect!(makeRuntime({ version: '26.1.0' }));
-      expect(result.ok).toBe(true);
-    });
-
-    it('returns ok:false on specific version mismatch', async () => {
-      mockRunCommand.mockResolvedValueOnce(ok(0, 'Docker version 25.0.0\n'));
-      const plugin = createPlugin(docker({ version: '26.1.0' }) as any);
-      const result = await plugin.detect!(makeRuntime({ version: '26.1.0' }));
-      expect(result.ok).toBe(false);
-    });
-
-    it('with include_compose checks both docker and docker-compose (both present)', async () => {
-      mockRunCommand.mockResolvedValueOnce(ok(0, 'Docker version 26.1.0\n'));
-      mockRunCommand.mockResolvedValueOnce(ok(0, 'Docker Compose version v2.27.0\n'));
-      const plugin = createPlugin(docker({ include_compose: true }) as any);
-      const result = await plugin.detect!(makeRuntime({ include_compose: true }));
-      expect(result.ok).toBe(true);
-      expect(result.details).toContain('Docker 26.1.0');
-      expect(result.details).toContain('Docker Compose 2.27.0');
-    });
-
-    it('with include_compose fails when compose is missing', async () => {
-      mockRunCommand.mockResolvedValueOnce(ok(0, 'Docker version 26.1.0\n'));
-      mockRunCommand.mockResolvedValueOnce(ok(1, '', ''));
-      mockRunCommand.mockResolvedValueOnce(ok(1, '', ''));
-      const plugin = createPlugin(docker({ include_compose: true }) as any);
-      const result = await plugin.detect!(makeRuntime({ include_compose: true }));
-      expect(result.ok).toBe(false);
-    });
-
-    it('without include_compose only checks docker', async () => {
-      mockRunCommand.mockResolvedValueOnce(ok(0, 'Docker version 26.1.0\n'));
-      const plugin = createPlugin(docker({ include_compose: false }) as any);
-      const result = await plugin.detect!(makeRuntime({ include_compose: false }));
-      expect(result.ok).toBe(true);
-      expect(mockRunCommand).toHaveBeenCalledTimes(1);
-    });
+  const { plugin, runtime } = setup();
+  expect(await plugin.apply!(runtime)).toMatchObject({ ok: true, didChange: true });
+  expect(mocks.run).toHaveBeenCalledWith("colima", ["start"], { cwd: "/work", env: runtime.context.env });
+  expect(mocks.run.mock.calls.some(call => call[0] === "brew")).toBe(false);
+});
+it("starts Colima after shared tasks made the CLI available", async () => {
+  mocks.platform.mockReturnValue("macos");
+  available(true, false);
+  const run = mocks.run.getMockImplementation()!;
+  mocks.run.mockImplementation(async (command, args) => {
+    if (command === "colima") { available(); return ok(); }
+    return run(command, args);
   });
-
-  describe('apply', () => {
-    it('returns didChange:false when Docker is already installed (with compose)', async () => {
-      mockRunCommand.mockResolvedValueOnce(ok(0, 'Docker version 26.1.0\n'));
-      mockRunCommand.mockResolvedValueOnce(ok(0, 'Docker Compose version v2.27.0\n'));
-      const plugin = createPlugin(docker() as any);
-      const result = await plugin.apply!(makeRuntime());
-      expect(result.ok).toBe(true);
-      expect(result.didChange).toBe(false);
-    });
-
-    it('on macOS without install_desktop installs via Colima', async () => {
-      mockRunCommand.mockResolvedValueOnce(ok(1, '', ''));
-      mockRunCommand.mockResolvedValueOnce(ok(0, '', '')); // brew install colima
-      mockRunCommand.mockResolvedValueOnce(ok(0, '', '')); // colima start
-      mockRunCommand.mockResolvedValueOnce(ok(0, '', '')); // docker run hello-world test
-
-      const plugin = createPlugin(docker() as any);
-      const result = await plugin.apply!(makeRuntime());
-      expect(result.ok).toBe(true);
-      expect(result.didChange).toBe(true);
-      expect(result.details).toContain('Colima');
-    });
-
-    it('on macOS with install_desktop downloads Docker Desktop DMG', async () => {
-      mockRunCommand.mockResolvedValueOnce(ok(1, '', ''));
-      mockRunCommand.mockResolvedValueOnce(ok(0, '', '')); // curl download
-      mockRunCommand.mockResolvedValueOnce(ok(0, '', '')); // docker run hello-world test
-
-      const plugin = createPlugin(docker({ install_desktop: true }) as any);
-      const result = await plugin.apply!(makeRuntime({ install_desktop: true }));
-      expect(result.ok).toBe(false);
-      expect(result.details).toContain('Complete installation');
-      expect(mockFsPromisesUnlink).not.toHaveBeenCalled();
-    });
-
-    it('on Linux (Ubuntu) installs Docker Engine', async () => {
-      mockGetPlatform.mockReturnValue('linux');
-      mockRunCommand.mockResolvedValueOnce(ok(1, '', ''));
-      mockFsReadFile.mockResolvedValueOnce('ID=ubuntu\nVERSION_CODENAME=jammy\n');
-      // All install commands succeed
-      mockRunCommand.mockResolvedValue(ok(0, '', ''));
-
-      const plugin = createPlugin(docker() as any);
-      await plugin.apply!(makeRuntime());
-      // It should run multiple commands (detect + install + test)
-      expect(mockRunCommand).toHaveBeenCalled();
-    });
-
-    it('handles unknown Linux distro gracefully', async () => {
-      mockGetPlatform.mockReturnValue('linux');
-      mockRunCommand.mockResolvedValueOnce(ok(1, '', ''));
-      mockFsReadFile.mockResolvedValueOnce('ID=arch\n');
-
-      const plugin = createPlugin(docker() as any);
-      const result = await plugin.apply!(makeRuntime());
-      expect(result.ok).toBe(false);
-    });
-
-    it('on Windows prints manual guide', async () => {
-      mockGetPlatform.mockReturnValue('windows');
-      mockRunCommand.mockResolvedValueOnce(ok(1, '', ''));
-      const plugin = createPlugin(docker() as any);
-      const result = await plugin.apply!(makeRuntime());
-      expect(result.ok).toBe(false);
-      expect(result.didChange).toBe(false);
-      expect(result.details).toContain('not supported on Windows');
-    });
-  });
-
-  describe('validate', () => {
-    it('returns ok:true when Docker is installed (with compose)', async () => {
-      mockRunCommand.mockResolvedValueOnce(ok(0, 'Docker version 26.1.0\n'));
-      mockRunCommand.mockResolvedValueOnce(ok(0, 'Docker Compose version v2.27.0\n'));
-      const plugin = createPlugin(docker() as any);
-      const result = await plugin.validate!(makeRuntime());
-      expect(result.ok).toBe(true);
-    });
-
-    it('returns ok:false when Docker is missing', async () => {
-      mockRunCommand.mockResolvedValueOnce(ok(1, '', ''));
-      const plugin = createPlugin(docker() as any);
-      const result = await plugin.validate!(makeRuntime());
-      expect(result.ok).toBe(false);
-    });
-  });
-
-  describe('registerTasks', () => {
-    beforeEach(() => { mockRunCommand.mockResolvedValue(ok(1, '', 'missing')); });
-    it('registers update and colima on macOS without install_desktop', async () => {
-      mockCreatePkgUpdateTask.mockReturnValue({ id: 'update' });
-      mockCreatePkgInstallTask.mockReturnValue({ id: 'colima' });
-      const plugin = createPlugin(docker() as any);
-      await plugin.registerTasks!(makeRuntime());
-      expect(mockCreatePkgInstallTask).toHaveBeenCalledWith('colima', '/test', {});
-      expect(mockTaskRegistry.register).toHaveBeenCalledTimes(4);
-    });
-
-    it('does not require Homebrew for Docker Desktop', async () => {
-      mockCreatePkgUpdateTask.mockReturnValue({ id: 'update' });
-      const plugin = createPlugin(docker({ install_desktop: true }) as any);
-      await plugin.registerTasks!(makeRuntime({ install_desktop: true }));
-      expect(mockTaskRegistry.register).toHaveBeenCalledTimes(0);
-    });
-
-    it('registers update + curl + ca-certificates + gnupg on Linux', async () => {
-      mockGetPlatform.mockReturnValue('linux');
-      mockCreatePkgUpdateTask.mockReturnValue({ id: 'update' });
-      mockCreatePkgInstallTask.mockReturnValue({ id: 'pkg' });
-      const plugin = createPlugin(docker() as any);
-      await plugin.registerTasks!(makeRuntime());
-      expect(mockTaskRegistry.register).toHaveBeenCalledTimes(4);
-    });
-
-    it('skips registration on Windows', async () => {
-      mockGetPlatform.mockReturnValue('windows');
-      const plugin = createPlugin(docker() as any);
-      await plugin.registerTasks!(makeRuntime());
-      expect(mockTaskRegistry.register).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('docker factory', () => {
-    it('sets default options correctly', () => {
-      const inst = docker();
-      expect(inst.id).toBe('docker');
-      expect(inst.category).toBe('tool');
-      expect(inst.options.version).toBe('latest');
-      expect(inst.options.include_compose).toBe(true);
-      expect(inst.options.install_desktop).toBe(false);
-    });
-
-    it('respects explicit options', () => {
-      const inst = docker({ version: '26.1.0', include_compose: false, install_desktop: true });
-      expect(inst.options.version).toBe('26.1.0');
-      expect(inst.options.include_compose).toBe(false);
-      expect(inst.options.install_desktop).toBe(true);
-    });
-  });
+  const { plugin, runtime } = setup();
+  expect(await plugin.apply!(runtime)).toMatchObject({ ok: true, didChange: true });
+});
+it("registers only Colima for an existing client with a stopped daemon", async () => {
+  mocks.platform.mockReturnValue("macos");
+  available(true, false);
+  const { plugin, runtime } = setup();
+  await plugin.registerTasks!(runtime);
+  expect(mocks.pkg).toHaveBeenCalledTimes(1);
+  expect(mocks.pkg).toHaveBeenCalledWith("colima", "/work", runtime.context.env);
+});
+it("propagates partial installation failures as changed", async () => {
+  mocks.install.mockImplementation(async (_runtime, changed) => { changed(); throw new Error("package install failed"); });
+  const { plugin, runtime } = setup();
+  expect(await plugin.apply!(runtime)).toMatchObject({ ok: false, didChange: true, details: expect.stringContaining("package install failed") });
+});
+it("verifies client, Compose, and daemon after installation", async () => {
+  mocks.install.mockImplementation(async (_runtime, changed) => { changed(); available(false); });
+  const { plugin, runtime } = setup();
+  expect(await plugin.apply!(runtime)).toMatchObject({ ok: false, didChange: true, details: expect.stringContaining("Compose is unavailable") });
 });
 
-
-it('falls back to legacy Compose when the Docker subcommand is unavailable', async () => {
-  mockRunCommand.mockReset();
-  mockRunCommand.mockResolvedValueOnce(ok(0, 'Docker version 26.1.0'));
-  mockRunCommand.mockResolvedValueOnce(ok(1, '', 'no compose subcommand'));
-  mockRunCommand.mockResolvedValueOnce(ok(0, 'Docker Compose version v2.27.0'));
-  const plugin = createPlugin(docker());
-  expect((await plugin.detect!(makeRuntime())).ok).toBe(true);
-  expect(mockRunCommand).toHaveBeenNthCalledWith(2, 'docker', ['compose', 'version'], expect.anything());
-  expect(mockRunCommand).toHaveBeenNthCalledWith(3, 'docker-compose', ['--version'], expect.anything());
-});
-
-it('uses Debian repositories and passes the execution environment to installer commands', async () => {
-  mockRunCommand.mockReset();
-  mockGetPlatform.mockReturnValue('linux');
-  mockRunCommand.mockResolvedValueOnce(ok(1, '', 'missing'));
-  mockRunCommand.mockResolvedValue(ok(0, '', ''));
-  mockFsReadFile.mockResolvedValueOnce('ID=debian\nVERSION_CODENAME=bookworm\n');
-  await createPlugin(docker()).apply!(makeRuntime());
-  const commands = mockRunCommand.mock.calls.filter(call => call[0] === 'bash');
-  expect(commands.some(call => call[1][1].includes('linux/debian/gpg'))).toBe(true);
-  expect(commands.some(call => call[1][1].includes('linux/ubuntu'))).toBe(false);
-  expect(commands.every(call => call[2].cwd === '/test')).toBe(true);
+it("adds only Compose when the existing Docker client already matches", async () => {
+  available(false);
+  const { plugin, runtime } = setup();
+  mocks.install.mockImplementation(async (_runtime, changed) => { changed(); available(); });
+  expect(await plugin.apply!(runtime)).toMatchObject({ ok: true, didChange: true });
+  expect(mocks.install).toHaveBeenCalledWith(runtime, expect.any(Function), true);
 });

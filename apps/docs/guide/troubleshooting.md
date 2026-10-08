@@ -46,7 +46,7 @@ The error identifies the script name and exit code. Before scripts run before to
 
 ## Docker Desktop or daemon unavailable
 
-Desktop requires manual installation and license acceptance. Genesis keeps the downloaded DMG and reports failure until completion. For automatic installs, a failing `docker info` check indicates the daemon is unavailable. Detection alone checks CLI/Compose availability, not daemon readiness.
+Desktop requires manual installation and license acceptance; Genesis reports the required setup without downloading an installer. Apply and doctor check the daemon with a 15-second timeout. A failing `docker info` check indicates startup, socket access, or connection problems; a daemon version mismatch can also fail a pin. Linux package changes have no automatic rollback.
 
 ## Cloud or restore commands
 

@@ -3,6 +3,7 @@ import { execa } from "execa";
 export interface RunCommandOptions {
   cwd?: string;
   env?: NodeJS.ProcessEnv;
+  timeout?: number;
 }
 
 export interface RunCommandResult {
@@ -20,11 +21,12 @@ export async function runCommand(
     cwd: options?.cwd,
     env: options?.env,
     reject: false,
+    timeout: options?.timeout,
   });
   return {
     code: subprocess.exitCode ?? 1,
     stdout: subprocess.stdout,
-    stderr: subprocess.stderr,
+    stderr: subprocess.stderr || (subprocess.timedOut ? `Command timed out after ${options?.timeout}ms` : ""),
   };
 }
 

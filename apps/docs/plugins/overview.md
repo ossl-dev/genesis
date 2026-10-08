@@ -13,7 +13,7 @@ Genesis includes eleven plugin implementations. Installation paths and validatio
 | [Go](/plugins/go) | Checksummed, staged archive | Full version; default Unix directories need permissions |
 | [Java](/plugins/java) | Checksummed Temurin archive | Oracle JDK manual; published x64/ARM64 builds |
 | [Git](/plugins/git) | System packages, verified Unix source, Windows MinGit | Managed release pins; MinGit requires a published checksum |
-| [Docker](/plugins/docker) | Colima or Linux installer | Desktop manual; Linux distro support partial |
+| [Docker](/plugins/docker) | Colima or Linux installer | Desktop manual; APT/DNF Engine pins; daemon verification |
 | [Homebrew](/plugins/homebrew) | macOS installer | Same-config bootstrap precedes shared tasks |
 
 Node, Go, Java, Bun, and Deno have Windows archive paths; pnpm/Yarn use Windows npm shims. Other missing Windows tools generally require manual installation. An installer smoke workflow exercises pinned versions in temporary directories on macOS, Ubuntu, and Windows; local successful runs are not proof that every release/architecture works.

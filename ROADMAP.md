@@ -4,9 +4,9 @@ Things to build, fix, and improve. Checked boxes mean implemented in this reposi
 
 ## Next priorities
 
-1. Complete Docker version pinning; extend disposable-host validation beyond archive and npm-prefix installers.
+1. Validate Docker daemon startup on disposable systemd hosts and expand real macOS/Windows installer coverage.
 2. Validate Homebrew bootstrap and update behavior on disposable macOS hosts.
-3. Run the installer smoke workflow across disposable macOS/Ubuntu/Windows runners, then extend Linux package-manager selection and remaining Windows installers.
+3. Observe installer CI on macOS/Ubuntu/Windows and Linux distribution containers; finish Windows Python installation.
 4. Finish local cache persistence/restore before cloud sync or standalone distribution.
 
 Recent work adds trustworthy config/failure handling, validated lifecycle hooks, a tested parallel core API, and real repository/script apply with dry-run plans. CLI plugin execution remains sequential.
@@ -75,8 +75,8 @@ Make existing stuff faster, safer, more portable.
 ### Platform support
 
 - [ ] **Windows** — Node/Go/Java/Bun/Deno archive installers and pnpm/Yarn npm prefixes are implemented. Git MinGit archives are implemented; add native Python installation.
-- [ ] **Linux** — test on Debian, Fedora, Arch. APT/DNF/pacman/APK selection and common build dependency mappings are implemented; add real disposable distribution tests and verify plugin-specific package availability.
-- [ ] **aarch64 / ARM** — Go and Docker Desktop map ARM64 correctly. Add real ARM installer checks and reject unsupported architectures rather than falling back to x64.
+- [ ] **Linux** — test on Debian, Fedora, Arch. APT/DNF/pacman/APK selection and build dependency mappings are implemented, with Debian/Fedora/Alpine container checks and an emulated Arch check. Observe native CI and verify remaining plugin-specific package availability.
+- [ ] **aarch64 / ARM** — archive installers and Linux Docker reject unsupported architectures. macOS and Linux ARM64 installer/package checks run locally; expand native CI coverage.
 - [x] `genesis doctor` detects and validates configured plugins with nonzero failure exits
 - [ ] Add config-free host diagnostics and prerequisite inventory to doctor
 
@@ -204,11 +204,11 @@ Not triaged into phases. Fix anytime.
 - [x] Require both Java and javac to match the requested version; a JRE alone does not satisfy the JDK plugin.
 - [x] Replace Go installations through staged extraction with recovery on failure.
 - [x] Enforce stable release selection and checksums for Git Unix source builds and Windows MinGit archives, with staged recovery and helper verification.
-- [ ] Enforce version selection in Docker installation paths.
+- [x] Resolve matching stable Docker Engine/CLI versions from APT/DNF repositories; reject unsupported automatic macOS pins, honor optional Compose, and verify client/daemon versions.
 - [x] Propagate Homebrew update/upgrade failures and bootstrap brew before shared system tasks.
 
 - [x] **Homebrew on Apple Silicon**: choose `/opt/homebrew`, use `/usr/local` on Intel, and expose the install bin directory to later commands.
-- [x] **Docker Desktop on macOS**: retain the downloaded DMG and report manual completion instead of claiming a successful install.
+- [x] **Docker Desktop**: report manual installation/license acceptance without downloading an unchecked DMG or claiming success.
 - [x] **Go arch detection**: map ARM64 to arm64 and x64 to amd64 in archive URLs.
 - [x] **Node standalone install**: resolve stable release prefixes, verify published archive checksums, stage and recover installs on macOS/glibc Linux/Windows; expose Node/npm to later plugins.
 - [x] **Parallel execution with one core**: `ParallelExecutionEngine` doesn't check available CPUs — could oversubscribe a low-resource machine.

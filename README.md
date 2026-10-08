@@ -73,9 +73,9 @@ Built-ins: Node, Bun, Deno, pnpm, Yarn, Python, Go, Java, Git, Docker, and Homeb
 
 - macOS uses Homebrew for shared package tasks; include the Homebrew plugin to bootstrap brew before shared prerequisites. Node supports NVM or staged archives, Docker uses Colima by default, and Go uses an archive.
 - Linux shared tasks select APT/DNF/pacman/APK and map common build dependencies. Arch uses its existing package database; maintain the host before provisioning.
-- Node, Go, Java, Bun, and Deno have archive installers on macOS, Linux, and Windows for published x64/ARM64 releases; other Windows installers generally require manual steps.
+- Node, Go, Java, Bun, and Deno have archive installers on macOS, Linux, and Windows for published x64/ARM64 releases; Windows Git supports MinGit archives; Python/Docker setup remains manual.
 - Go/Java archives use published checksums, staged verification, and recovery on failed promotion. Choose `install_dir` for a writable location; default Unix system directories need permissions. Git uses verified source builds on Unix or MinGit archives on Windows.
-- Docker Desktop needs manual installation and license acceptance. Downloads are retained and apply reports that completion is required.
+- Docker Desktop needs manual installation and license acceptance. Linux Docker resolves matching Engine/CLI release packages; apply and doctor also verify daemon availability and version.
 - Apply is sequential in the CLI. Core consumers can opt into the tested parallel engine; configured path/port checks cannot infer every installer resource conflict.
 - Rollback and environment isolation are not implemented. A failed run can leave earlier changes in place.
 

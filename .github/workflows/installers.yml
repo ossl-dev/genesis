@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['packages/plugins/**', 'packages/core/src/os/**', 'scripts/installer-smoke.ts', '.github/workflows/installers.yml', 'bun.lock']
+    paths: ['packages/plugins/**', 'packages/core/src/os/**', 'packages/core/src/execution/system-tasks*', 'scripts/*smoke*', '.github/workflows/installers.yml', 'bun.lock']
   pull_request:
-    paths: ['packages/plugins/**', 'packages/core/src/os/**', 'scripts/installer-smoke.ts', '.github/workflows/installers.yml', 'bun.lock']
+    paths: ['packages/plugins/**', 'packages/core/src/os/**', 'packages/core/src/execution/system-tasks*', 'scripts/*smoke*', '.github/workflows/installers.yml', 'bun.lock']
 
 concurrency:
   group: installers-${{ github.workflow }}-${{ github.ref }}
@@ -34,3 +34,34 @@ jobs:
       - if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y build-essential libcurl4-openssl-dev zlib1g-dev libexpat1-dev perl
       - run: bun run scripts/installer-smoke.ts
+
+  linux-packages:
+    name: Packages on ${{ matrix.image }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: debian:bookworm-slim
+            bun: oven/bun:1.3.2
+          - image: fedora:43
+            bun: oven/bun:1.3.2
+          - image: archlinux:base-devel
+            bun: oven/bun:1.3.2
+          - image: alpine:3.22
+            bun: oven/bun:1.3.2-alpine
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: '1.3.2'
+      - run: bun install --frozen-lockfile
+      - run: bun run --filter @ossl/genesis-core build
+      - run: docker build -f scripts/package-manager-smoke.Dockerfile --build-arg BASE_IMAGE="$BASE_IMAGE" --build-arg BUN_IMAGE="$BUN_IMAGE" -t genesis-packages .
+        env:
+          BASE_IMAGE: ${{ matrix.image }}
+          BUN_IMAGE: ${{ matrix.bun }}
+      - run: docker run --rm --mount type=bind,source="$PWD",target=/work,readonly genesis-packages
+      - if: startsWith(matrix.image, 'debian:') || startsWith(matrix.image, 'fedora:')
+        run: docker run --rm --mount type=bind,source="$PWD",target=/work,readonly genesis-packages bun scripts/docker-packages-smoke.ts

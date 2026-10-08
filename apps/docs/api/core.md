@@ -50,3 +50,5 @@ The plan contains ordered script/plugin/repository actions and environment varia
 See [Task Registry](/api/task-registry), [Parallel Execution](/api/execution), and [Utilities](/api/utilities).
 
 `EnvironmentCacheManager` and its snapshot/artifact types are exported but unfinished. Compression stores metadata in memory, optional "remote" sync writes local JSON, restore does not restore files/network, and encryption is not implemented. The CLI has no usable restore workflow. These APIs are not backup guarantees.
+
+`loadPlugin(instance, importModule?)` and `loadPlugins(instances, importModule?)` accept a consumer-scoped async importer for isolated dependency layouts. The CLI imports plugins from its own declared dependencies; a core consumer can pass `moduleId => import(moduleId)` from the module that owns its plugins.

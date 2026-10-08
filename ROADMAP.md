@@ -213,6 +213,7 @@ Not triaged into phases. Fix anytime.
 - [x] **Parallel execution with one core**: `ParallelExecutionEngine` doesn't check available CPUs — could oversubscribe a low-resource machine.
 - [x] **Config validation error messages**: Zod errors are printed raw without context. "Expected number, got string" on a deeply nested field is hard to debug — need path + friendly message.
 - [x] **Plugin loading errors**: report the plugin ID and module when import fails; load-time option errors also include the ID.
+- [x] Declare built-in plugins as a CLI dependency and resolve them from the consumer import scope; test every packaged built-in using a real external config dry run.
 - [ ] **No config file caching**: every `genesis apply` re-parses and re-validates the config. Add hash-based skip when nothing changed.
 - [ ] **`genesis diff` output**: currently reports plugin detection status. Add desired/current version and package changes.
 - [x] **Windows test paths**: real integration tests use native paths; mocked config fixtures use portable virtual paths. The old `download.ts` utility was removed.

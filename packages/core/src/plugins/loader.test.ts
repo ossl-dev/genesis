@@ -31,3 +31,11 @@ describe("plugin loading", () => {
     await expect(loadPlugin({ id: "custom", category: "tool", module: "nonexistent-genesis-test-plugin" })).rejects.toThrow("Failed to load plugin 'custom' from 'nonexistent-genesis-test-plugin'");
   });
 });
+
+
+it('resolves modules through the supplied consumer import scope', async () => {
+  const instance = { id: 'scoped', category: 'tool' as const, module: 'consumer-only-plugin' };
+  const importer = vi.fn(async () => ({ createPlugin: () => ({ id: instance.id, category: instance.category }) }));
+  expect((await loadPlugin(instance, importer)).plugin.id).toBe('scoped');
+  expect(importer).toHaveBeenCalledWith('consumer-only-plugin');
+});

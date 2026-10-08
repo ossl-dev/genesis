@@ -60,7 +60,7 @@ async function prepare(context: RunnerContext) {
   logger.debug(`Loading config from ${context.cwd}`);
   const config = await loadConfig(context.cwd, context.configPath);
   const instances = collectPluginInstances(config);
-  const nodes = await loadPlugins(instances);
+  const nodes = await loadPlugins(instances, moduleId => import(moduleId));
   const graph = buildPluginGraph(nodes);
   return { logger, graph, config, env: { ...process.env, ...config.env } };
 }

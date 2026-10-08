@@ -28,11 +28,12 @@ async function importPluginModule(moduleId: string): Promise<unknown> {
 }
 
 export async function loadPlugin(
-  instance: GenesisPluginInstance
+  instance: GenesisPluginInstance,
+  importModule: (moduleId: string) => Promise<unknown> = importPluginModule,
 ): Promise<PluginExecutionNode> {
   let mod: unknown;
   try {
-    mod = await importPluginModule(instance.module);
+    mod = await importModule(instance.module);
   } catch (error) {
     throw new Error(`Failed to load plugin '${instance.id}' from '${instance.module}': ${error instanceof Error ? error.message : String(error)}`);
   }
@@ -57,11 +58,12 @@ export async function loadPlugin(
 }
 
 export async function loadPlugins(
-  instances: GenesisPluginInstance[]
+  instances: GenesisPluginInstance[],
+  importModule?: (moduleId: string) => Promise<unknown>,
 ): Promise<PluginExecutionNode[]> {
   const result: PluginExecutionNode[] = [];
   for (const instance of instances) {
-    const node = await loadPlugin(instance);
+    const node = await loadPlugin(instance, importModule);
     result.push(node);
   }
   return result;

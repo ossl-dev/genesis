@@ -53,14 +53,13 @@ async function exists(target: string): Promise<boolean> {
 }
 
 // Keep staging and backup on the destination filesystem so promotion uses rename.
-export async function installArchive(options: {
-  release: ArchiveRelease;
+export async function installDirectory(options: {
   destination: string;
   context: GenesisPluginContext;
-  select(root: string): Promise<string>;
+  prepare(stage: string): Promise<string>;
   verify(root: string): Promise<void>;
 }): Promise<void> {
-  const { release, context, select, verify } = options;
+  const { context, prepare, verify } = options;
   const destination = path.resolve(options.destination);
   if (destination === path.parse(destination).root) throw new Error("Cannot install into a filesystem root");
   await fs.promises.mkdir(path.dirname(destination), { recursive: true });
@@ -78,25 +77,11 @@ export async function installArchive(options: {
       if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error(`Installation destination must be a real directory: ${destination}`);
     }
     stage = await fs.promises.mkdtemp(path.join(path.dirname(destination), ".genesis-"));
-    const archive = path.join(stage, `download.${release.format}`);
-    const unpack = path.join(stage, "unpack");
     const previous = path.join(stage, "previous");
-    await download(release, archive);
-    await fs.promises.mkdir(unpack);
-    const commandOptions = { cwd: context.cwd, env: context.env };
-    const zipped = release.format === "zip" && process.platform !== "win32";
-    const listing = await runCommand(zipped ? "unzip" : "tar", zipped ? ["-Z1", archive] : ["-tf", archive], commandOptions);
-    if (listing.code !== 0) throw new Error(`Cannot inspect archive: ${listing.stderr}`);
-    const entries = listing.stdout.split(/\r?\n/).filter(Boolean);
-    if (!entries.length || entries.some(entry => /^(?:[\\/]|[A-Za-z]:)/.test(entry) || entry.split(/[\\/]/).includes(".."))) {
-      throw new Error("Archive contains unsafe or empty paths");
-    }
-    const extracted = await runCommand(zipped ? "unzip" : "tar", zipped ? ["-q", archive, "-d", unpack] : ["-xf", archive, "-C", unpack], commandOptions);
-    if (extracted.code !== 0) throw new Error(`Archive extraction failed: ${extracted.stderr}`);
-    const selected = await fs.promises.realpath(await select(unpack));
-    const unpackReal = await fs.promises.realpath(unpack);
-    const relative = path.relative(unpackReal, selected);
-    if (relative.startsWith(`..${path.sep}`) || relative === ".." || path.isAbsolute(relative)) throw new Error("Runtime directory escapes staging");
+    const selected = await fs.promises.realpath(await prepare(stage));
+    const stageReal = await fs.promises.realpath(stage);
+    const relative = path.relative(stageReal, selected);
+    if (!relative || relative.startsWith(`..${path.sep}`) || relative === ".." || path.isAbsolute(relative)) throw new Error("Runtime directory escapes staging");
     await verify(selected);
     const hadPrevious = await exists(destination);
     if (hadPrevious) await fs.promises.rename(destination, previous);
@@ -121,4 +106,31 @@ export async function installArchive(options: {
     }
     await fs.promises.rmdir(lock).catch(error => context.logger.warn(`Could not remove installation lock ${lock}: ${error}`));
   }
+}
+
+export async function installArchive(options: {
+  release: ArchiveRelease;
+  destination: string;
+  context: GenesisPluginContext;
+  select(root: string): Promise<string>;
+  verify(root: string): Promise<void>;
+}): Promise<void> {
+  const { release, context, select } = options;
+  await installDirectory({ ...options, async prepare(stage) {
+    const archive = path.join(stage, `download.${release.format}`);
+    const unpack = path.join(stage, "unpack");
+    await download(release, archive);
+    await fs.promises.mkdir(unpack);
+    const commandOptions = { cwd: context.cwd, env: context.env };
+    const zipped = release.format === "zip" && process.platform !== "win32";
+    const listing = await runCommand(zipped ? "unzip" : "tar", zipped ? ["-Z1", archive] : ["-tf", archive], commandOptions);
+    if (listing.code !== 0) throw new Error(`Cannot inspect archive: ${listing.stderr}`);
+    const entries = listing.stdout.split(/\r?\n/).filter(Boolean);
+    if (!entries.length || entries.some(entry => /^(?:[\\/]|[A-Za-z]:)/.test(entry) || entry.split(/[\\/]/).includes(".."))) {
+      throw new Error("Archive contains unsafe or empty paths");
+    }
+    const extracted = await runCommand(zipped ? "unzip" : "tar", zipped ? ["-q", archive, "-d", unpack] : ["-xf", archive, "-C", unpack], commandOptions);
+    if (extracted.code !== 0) throw new Error(`Archive extraction failed: ${extracted.stderr}`);
+    return select(unpack);
+  } });
 }

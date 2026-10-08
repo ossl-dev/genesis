@@ -16,3 +16,7 @@ Factories return plugin instances; `loadPlugins` loads their implementations and
 See the [plugin overview](../../apps/docs/plugins/overview.md) for supported paths and the [lifecycle reference](../../apps/docs/plugins/lifecycle.md) for dependencies and hooks. Windows installation and non-APT Linux package tasks are unfinished. Java archive resolution and Git source/binary installation are experimental. Rollback is not implemented.
 
 From the repository root: `bun run build`, `bun run lint`, `bun run test`.
+
+Pinned [Bun](../../apps/docs/plugins/bun.md) and [Deno](../../apps/docs/plugins/deno.md) archive plugins are also available as `@ossl/genesis-plugins/bun` and `@ossl/genesis-plugins/deno`.
+
+[pnpm](../../apps/docs/plugins/pnpm.md) and [Yarn](../../apps/docs/plugins/yarn.md) provision pinned package-manager versions after the configured Node plugin, using staged npm prefixes.

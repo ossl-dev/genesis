@@ -12,7 +12,7 @@ let destination: string;
 const context = { cwd: process.cwd(), env: { ...process.env }, logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() }, taskRegistry: {} as any };
 
 beforeEach(async () => {
-  root = await fs.promises.mkdtemp(path.join(os.tmpdir(), "genesis-archive-test-"));
+  root = await fs.promises.mkdtemp(path.join(os.tmpdir(), "genesis archive test-"));
   destination = path.join(root, "installed");
   const source = path.join(root, "source", "runtime");
   await fs.promises.mkdir(source, { recursive: true });
@@ -124,4 +124,13 @@ describe("staged archive installation", () => {
     await expect(installArchive(config)).rejects.toThrow("escapes staging");
     expect(await installedVersion()).toBe("old");
   });
+});
+
+
+it('installs ZIP archives through the platform archive tool', async () => {
+  bytes = Buffer.from("UEsDBBQAAAAAAO+QSF1FRONrAwAAAAMAAAAPAAAAcnVudGltZS92ZXJzaW9ubmV3UEsBAhQDFAAAAAAA75BIXUVE42sDAAAAAwAAAA8AAAAAAAAAAAAAAIABAAAAAHJ1bnRpbWUvdmVyc2lvblBLBQYAAAAAAQABAD0AAAAwAAAAAAA=", "base64");
+  const config = options();
+  await installArchive({ ...config, release: { ...config.release, format: 'zip' } });
+  expect(await installedVersion()).toBe('new');
+  await expectClean();
 });

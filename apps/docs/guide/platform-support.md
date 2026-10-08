@@ -17,3 +17,5 @@ On macOS, include the Homebrew plugin to bootstrap brew before shared system tas
 Go and Java use checksummed staged archives on macOS/Linux/Windows, reject unsupported CPU architectures, and restore the previous directory if promotion fails. Docker Desktop downloads select ARM64/x64. Installer coverage still needs disposable hosts across platforms. See each [plugin reference](/plugins/overview).
 
 Configured environment values only affect Genesis and child commands. Shell profile changes are generally printed as instructions rather than persisted. Rollback and project isolation are not implemented.
+
+The installer smoke workflow downloads and applies Go, Java, Bun, Deno, pnpm, Yarn Classic, and modern Yarn in temporary directories on macOS/Ubuntu/Windows CI. It validates executables and verifies that a new-context second apply is unchanged. Successful real runs have been observed locally on macOS ARM64; CI outcomes and other platforms still need observation. The workflow requires network access and Node/npm and does not certify unrelated system installers.

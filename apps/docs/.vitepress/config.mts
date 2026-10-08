@@ -91,6 +91,10 @@ export default defineConfig({
             collapsed: false,
             items: [
               { text: "Node.js", link: "node" },
+              { text: "Bun", link: "bun" },
+              { text: "Deno", link: "deno" },
+              { text: "pnpm", link: "pnpm" },
+              { text: "Yarn", link: "yarn" },
               { text: "Git", link: "git" },
               { text: "Docker", link: "docker" },
               { text: "Homebrew", link: "homebrew" },

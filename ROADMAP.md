@@ -6,7 +6,7 @@ Things to build, fix, and improve. Checked boxes mean implemented in this reposi
 
 1. Extend verified staged installation beyond Go/Java; correct Git release resolution and version pinning in Docker installers.
 2. Validate Homebrew bootstrap and update behavior on disposable macOS hosts.
-3. Add real installer checks in disposable environments, then implement Linux package-manager selection and Windows installers.
+3. Run the installer smoke workflow across disposable macOS/Ubuntu/Windows runners, then extend Linux package-manager selection and remaining Windows installers.
 4. Finish local cache persistence/restore before cloud sync or standalone distribution.
 
 Recent work adds trustworthy config/failure handling, validated lifecycle hooks, a tested parallel core API, and real repository/script apply with dry-run plans. CLI plugin execution remains sequential.
@@ -29,6 +29,7 @@ Unit tests cover configs, plugins, task scheduling, and CLI behavior. Local inte
 - [x] Add unit tests for each plugin's `detect`, `apply`, `validate` methods (mock the shell)
 - [x] Add integration tests — execute real scripts and local Git clones in temp directories; cover failures and preservation of existing files
 - [x] Add platform-specific test runs (macOS, Linux, Windows) in CI
+- [x] Add real installer smoke workflow for Go, Java, Bun, Deno, pnpm, and Yarn in temporary directories; published downloads and repeated apply are checked. Local macOS ARM64 runs passed; remote CI results remain to be observed.
 
 ### CI / infra
 
@@ -97,14 +98,16 @@ Make existing stuff faster, safer, more portable.
 
 ## Phase 3 — More plugins
 
-Plugins that exist as doc pages but have zero implementation code.
+Expand verified provisioning with focused runtime, package-manager, and service plugins.
 
 ### Languages & runtimes
 
-- [ ] **Bun plugin** — detect existing install, install via curl/brew, set up shell completions
-- [ ] **Deno plugin** — detect, install via curl/brew, manage DENO_INSTALL
+- [x] **Bun plugin** — detect, install pinned checksummed archives, select x64/ARM64 and Linux libc, expose the managed runtime
+- [ ] Add Bun shell completions without overwriting user shell configuration
+- [x] **Deno plugin** — detect, install pinned checksummed archives, manage runtime DENO_INSTALL/PATH; reject unavailable releases and musl Linux
 - [ ] **Rust plugin** — detect rustup/rustc/cargo, install via rustup, manage toolchains
-- [ ] **pnpm / Yarn plugin** — install via npm/brew, manage global packages
+- [x] **pnpm / Yarn plugins** — pinned versions in staged npm prefixes, Node dependency ordering, Classic/modern Yarn, and Windows npm shims
+- [ ] Add explicit global-package management to pnpm/Yarn plugins
 - [ ] **C++ build tools** — detect g++/clang/MSVC, install Xcode CLT / build-essential
 - [ ] **Swift plugin** — detect swiftc, install Xcode or Swift toolchain for Linux
 

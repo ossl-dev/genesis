@@ -9,7 +9,7 @@ describe("release resolution", () => {
   it.each([['macos', 'darwin', 'arm64', 'arm64', 'tar.gz'], ['linux', 'linux', 'x64', 'amd64', 'tar.gz'], ['windows', 'windows', 'arm64', 'arm64', 'zip']] as const)("resolves Go %s archives with published checksums", async (platform, system, arch, downloadArch, format) => {
     vi.spyOn(os, "arch").mockReturnValue(arch);
     const filename = `go1.22.5.${system}-${downloadArch}.${format}`;
-    json([{ files: [{ filename, sha256: hash }] }]);
+    json([{ files: [{ filename: "legacy.tar.gz", sha256: "" }] }, { files: [{ filename, sha256: hash }] }]);
     expect(await goRelease('1.22.5', platform)).toEqual({ url: `https://go.dev/dl/${filename}`, sha256: hash, format });
   });
   it("rejects nonexistent Go releases", async () => {
@@ -39,5 +39,44 @@ describe("release resolution", () => {
   it("reports HTTP failures rather than parsing an error page", async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response('unavailable', { status: 503 })));
     await expect(javaRelease('17', 'linux')).rejects.toThrow('503');
+  });
+});
+
+import { bunRelease, denoRelease } from "./releases.js";
+describe("Bun and Deno releases", () => {
+  it.each([
+    ['macos', 'arm64', 'auto', 'bun-darwin-aarch64.zip'],
+    ['linux', 'x64', 'glibc', 'bun-linux-x64-baseline.zip'],
+    ['linux', 'arm64', 'musl', 'bun-linux-aarch64-musl.zip'],
+    ['windows', 'x64', 'auto', 'bun-windows-x64-baseline.zip'],
+    ['windows', 'arm64', 'auto', 'bun-windows-aarch64.zip'],
+  ] as const)("selects the correct Bun archive for %s/%s/%s", async (platform, arch, libc, name) => {
+    vi.spyOn(os, 'arch').mockReturnValue(arch);
+    json({ assets: [{ name, browser_download_url: `https://example.com/${name}`, digest: `sha256:${hash}` }] });
+    expect(await bunRelease('1.3.2', platform, libc)).toEqual({ url: `https://example.com/${name}`, sha256: hash, format: 'zip' });
+  });
+  it("uses the checksum manifest for releases without asset digests", async () => {
+    vi.spyOn(os, 'arch').mockReturnValue('arm64');
+    const name = 'bun-darwin-aarch64.zip';
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ assets: [
+        { name, browser_download_url: `https://example.com/${name}` },
+        { name: 'SHASUMS256.txt', browser_download_url: 'https://example.com/sums' },
+      ] })))
+      .mockResolvedValueOnce(new Response(`${'b'.repeat(64)}  other.zip\n${hash} *${name}\n`)));
+    expect((await bunRelease('1.3.2', 'macos')).sha256).toBe(hash);
+  });
+  it("does not guess missing Bun architecture assets", async () => {
+    json({ assets: [] });
+    await expect(bunRelease('1.3.2', 'windows')).rejects.toThrow('no archive');
+  });
+  it.each([['macos', 'arm64', 'aarch64-apple-darwin'], ['windows', 'x64', 'x86_64-pc-windows-msvc'], ['windows', 'arm64', 'aarch64-pc-windows-msvc']] as const)("resolves Deno %s/%s with its published checksum", async (platform, arch, target) => {
+    vi.spyOn(os, 'arch').mockReturnValue(arch);
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(`${hash}  deno-${target}.zip\n`)));
+    expect(await denoRelease('2.5.4', platform)).toMatchObject({ url: expect.stringContaining(`deno-${target}.zip`), sha256: hash });
+  });
+  it("refuses to install without a valid checksum", async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('missing checksum')));
+    await expect(denoRelease('2.5.4', 'macos')).rejects.toThrow('No SHA-256');
   });
 });

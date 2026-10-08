@@ -73,7 +73,7 @@ Built-ins: Node, Python, Go, Java, Git, Docker, and Homebrew. Options are valida
 
 - macOS uses Homebrew for shared package tasks; include the Homebrew plugin to bootstrap brew before shared prerequisites. Node uses NVM, Docker uses Colima by default, and Go uses an archive.
 - Linux shared package tasks use APT. Fedora/Arch support is incomplete.
-- Go and Java have archive installers on macOS, Linux, and Windows for published x64/ARM64 releases; other Windows installers generally require manual steps.
+- Go, Java, Bun, and Deno have archive installers on macOS, Linux, and Windows for published x64/ARM64 releases; other Windows installers generally require manual steps.
 - Go/Java archives use published checksums, staged verification, and recovery on failed promotion. Choose `install_dir` for a writable location; default Unix system directories need permissions. Git source/binary paths remain experimental.
 - Docker Desktop needs manual installation and license acceptance. Downloads are retained and apply reports that completion is required.
 - Apply is sequential in the CLI. Core consumers can opt into the tested parallel engine; configured path/port checks cannot infer every installer resource conflict.
@@ -102,3 +102,5 @@ The recent work established unit tests and CI, removed dead utilities, and repai
 - [Architecture](apps/docs/guide/architecture.md)
 
 Report issues at [ossl-dev/genesis](https://github.com/ossl-dev/genesis/issues).
+
+Bun, Deno, pnpm, and Yarn plugins provide pinned runtime/package-manager setup. See the [plugin reference](apps/docs/plugins/overview.md). Real installer smoke checks run with `bun run scripts/installer-smoke.ts` after building core; they require network access and Node/npm, use temporary installation directories, and clean up afterward.

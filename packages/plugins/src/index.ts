@@ -40,3 +40,12 @@ export {
   createPlugin as createHomebrewPlugin,
 } from "./plugins/homebrew/index.js";
 export type { HomebrewOptions } from "./plugins/homebrew/index.js";
+
+export { bun, createPlugin as createBunPlugin } from "./plugins/bun/index.js";
+export type { BunOptions } from "./plugins/bun/index.js";
+export { deno, createPlugin as createDenoPlugin } from "./plugins/deno/index.js";
+export type { DenoOptions } from "./plugins/deno/index.js";
+export { pnpm, createPlugin as createPnpmPlugin } from "./plugins/pnpm/index.js";
+export type { PnpmOptions } from "./plugins/pnpm/index.js";
+export { yarn, createPlugin as createYarnPlugin } from "./plugins/yarn/index.js";
+export type { YarnOptions } from "./plugins/yarn/index.js";

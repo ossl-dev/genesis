@@ -43,7 +43,7 @@ async function detectJava(runtime: PluginRuntime<JavaOptions>) {
   const directory = javaDirectory(runtime);
   const executable = path.join(directory, "bin", getPlatform() === "windows" ? "java.exe" : "java");
   const managed = fs.existsSync(executable);
-  const result = await checkJava(runtime, managed ? executable : "java");
+  const result = await checkJava(runtime, managed || runtime.options.install_dir ? executable : "java");
   if (result.ok && managed) exposeJava(runtime, directory);
   return result;
 }

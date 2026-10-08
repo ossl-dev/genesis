@@ -33,7 +33,7 @@ async function detectGo(runtime: PluginRuntime<GoOptions>) {
   const directory = goDirectory(runtime);
   const executable = path.join(directory, "bin", getPlatform() === "windows" ? "go.exe" : "go");
   const managed = fs.existsSync(executable);
-  const result = await checkGo(runtime, managed ? executable : "go");
+  const result = await checkGo(runtime, managed || runtime.options.install_dir ? executable : "go");
   if (result.ok && managed) prependPath(runtime.context.env, path.join(directory, "bin"));
   return result;
 }

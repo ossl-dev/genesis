@@ -7,6 +7,10 @@ import { type GenesisConfig, type GenesisPluginCategory } from "./schema.js";
 import { validateConfig } from "./validator.js";
 
 const yamlPluginDefaults: Record<string, { module: string; category: GenesisPluginCategory }> = {
+  pnpm: { module: "@ossl/genesis-plugins/pnpm", category: "tool" },
+  yarn: { module: "@ossl/genesis-plugins/yarn", category: "tool" },
+  bun: { module: "@ossl/genesis-plugins/bun", category: "tool" },
+  deno: { module: "@ossl/genesis-plugins/deno", category: "tool" },
   node: { module: "@ossl/genesis-plugins/node", category: "tool" },
   python: { module: "@ossl/genesis-plugins/python", category: "language" },
   go: { module: "@ossl/genesis-plugins/go", category: "language" },

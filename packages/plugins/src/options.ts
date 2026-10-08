@@ -6,7 +6,15 @@ const installDirectory = z.string().min(1).refine(value => path.isAbsolute(value
 const version = z.string().regex(/^\d+(?:\.\d+){0,2}$/, "Expected a numeric version such as 22 or 3.11.9");
 const packages = z.array(z.string().regex(/^[^-\s][^\s]*$/, "Expected a package name, not a command option"));
 
+const archiveVersion = z.string().regex(/^\d+\.\d+\.\d+$/, "Archive installation requires a full version such as 1.3.2");
+
+const packageManagerOptions = z.object({ version: archiveVersion, install_dir: installDirectory, node_plugin: z.string().min(1).nullable().default("node") }).strict();
+
 export const optionSchemas = {
+  pnpm: packageManagerOptions,
+  yarn: packageManagerOptions,
+  bun: z.object({ version: archiveVersion, install_dir: installDirectory, libc: z.enum(["auto", "glibc", "musl"]).default("auto") }).strict(),
+  deno: z.object({ version: archiveVersion, install_dir: installDirectory }).strict(),
   node: z.object({
     version,
     use_nvm: z.boolean().default(true),

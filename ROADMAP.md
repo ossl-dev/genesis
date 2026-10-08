@@ -4,7 +4,7 @@ Things to build, fix, and improve. Checked boxes mean implemented in this reposi
 
 ## Next priorities
 
-1. Correct Git release resolution and Docker version pinning; extend disposable-host validation beyond archive and npm-prefix installers.
+1. Complete Docker version pinning; extend disposable-host validation beyond archive and npm-prefix installers.
 2. Validate Homebrew bootstrap and update behavior on disposable macOS hosts.
 3. Run the installer smoke workflow across disposable macOS/Ubuntu/Windows runners, then extend Linux package-manager selection and remaining Windows installers.
 4. Finish local cache persistence/restore before cloud sync or standalone distribution.
@@ -74,7 +74,7 @@ Make existing stuff faster, safer, more portable.
 
 ### Platform support
 
-- [ ] **Windows** — Node/Go/Java/Bun/Deno archive installers and pnpm/Yarn npm prefixes are implemented. Add native Python and Git installers.
+- [ ] **Windows** — Node/Go/Java/Bun/Deno archive installers and pnpm/Yarn npm prefixes are implemented. Git MinGit archives are implemented; add native Python installation.
 - [ ] **Linux** — test on Debian, Fedora, Arch. APT/DNF/pacman/APK selection and common build dependency mappings are implemented; add real disposable distribution tests and verify plugin-specific package availability.
 - [ ] **aarch64 / ARM** — Go and Docker Desktop map ARM64 correctly. Add real ARM installer checks and reject unsupported architectures rather than falling back to x64.
 - [x] `genesis doctor` detects and validates configured plugins with nonzero failure exits
@@ -203,7 +203,8 @@ Not triaged into phases. Fix anytime.
 - [x] Resolve Java archive releases and build numbers; stage extraction without selecting unrelated JDK directories.
 - [x] Require both Java and javac to match the requested version; a JRE alone does not satisfy the JDK plugin.
 - [x] Replace Go installations through staged extraction with recovery on failure.
-- [ ] Enforce version selection in Git source/binary and Docker installation paths.
+- [x] Enforce stable release selection and checksums for Git Unix source builds and Windows MinGit archives, with staged recovery and helper verification.
+- [ ] Enforce version selection in Docker installation paths.
 - [x] Propagate Homebrew update/upgrade failures and bootstrap brew before shared system tasks.
 
 - [x] **Homebrew on Apple Silicon**: choose `/opt/homebrew`, use `/usr/local` on Intel, and expose the install bin directory to later commands.

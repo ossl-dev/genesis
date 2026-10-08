@@ -69,12 +69,12 @@ Cloud apply is unavailable and exits nonzero. `list --cloud` only reports the un
 
 ## Plugins and limits
 
-Built-ins: Node, Python, Go, Java, Git, Docker, and Homebrew. Options are validated when plugins load. Missing dependencies, cycles, and duplicate IDs fail before provisioning. Plugins can declare `dependsOn`, `preApply`, and `postApply` hooks.
+Built-ins: Node, Bun, Deno, pnpm, Yarn, Python, Go, Java, Git, Docker, and Homebrew. Options are validated when plugins load. Missing dependencies, cycles, and duplicate IDs fail before provisioning. Plugins can declare `dependsOn`, `preApply`, and `postApply` hooks.
 
 - macOS uses Homebrew for shared package tasks; include the Homebrew plugin to bootstrap brew before shared prerequisites. Node supports NVM or staged archives, Docker uses Colima by default, and Go uses an archive.
-- Linux shared package tasks use APT. Fedora/Arch support is incomplete.
+- Linux shared tasks select APT/DNF/pacman/APK and map common build dependencies. Arch uses its existing package database; maintain the host before provisioning.
 - Node, Go, Java, Bun, and Deno have archive installers on macOS, Linux, and Windows for published x64/ARM64 releases; other Windows installers generally require manual steps.
-- Go/Java archives use published checksums, staged verification, and recovery on failed promotion. Choose `install_dir` for a writable location; default Unix system directories need permissions. Git source/binary paths remain experimental.
+- Go/Java archives use published checksums, staged verification, and recovery on failed promotion. Choose `install_dir` for a writable location; default Unix system directories need permissions. Git uses verified source builds on Unix or MinGit archives on Windows.
 - Docker Desktop needs manual installation and license acceptance. Downloads are retained and apply reports that completion is required.
 - Apply is sequential in the CLI. Core consumers can opt into the tested parallel engine; configured path/port checks cannot infer every installer resource conflict.
 - Rollback and environment isolation are not implemented. A failed run can leave earlier changes in place.

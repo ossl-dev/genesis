@@ -8,6 +8,7 @@ import { java, createPlugin as javaPlugin } from "../packages/plugins/src/plugin
 import { bun, createPlugin as bunPlugin } from "../packages/plugins/src/plugins/bun/index.js";
 import { deno, createPlugin as denoPlugin } from "../packages/plugins/src/plugins/deno/index.js";
 import { pnpm, createPlugin as pnpmPlugin } from "../packages/plugins/src/plugins/pnpm/index.js";
+import { git, createPlugin as gitPlugin } from "../packages/plugins/src/plugins/git/index.js";
 import { yarn, createPlugin as yarnPlugin } from "../packages/plugins/src/plugins/yarn/index.js";
 
 const root = await fs.mkdtemp(path.join(os.tmpdir(), "genesis installer smoke-"));
@@ -46,6 +47,8 @@ try {
   await check(pnpmInstance, pnpmPlugin(pnpmInstance));
   const yarnInstance = yarn({ version: "4.9.4", install_dir: path.join(root, "yarn"), node_plugin: null });
   await check(yarnInstance, yarnPlugin(yarnInstance));
+  const gitInstance = git({ version: "2.53.0", install_method: process.platform === "win32" ? "binary" : "source", install_dir: path.join(root, "git") });
+  await check(gitInstance, gitPlugin(gitInstance));
   const classic = yarn({ version: "1.22.22", install_dir: path.join(root, "yarn-classic"), node_plugin: null });
   await check(classic, yarnPlugin(classic));
 } finally {

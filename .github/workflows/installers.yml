@@ -31,4 +31,6 @@ jobs:
           node-version: '22'
       - run: bun install --frozen-lockfile
       - run: bun run --filter @ossl/genesis-core build
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y build-essential libcurl4-openssl-dev zlib1g-dev libexpat1-dev perl
       - run: bun run scripts/installer-smoke.ts

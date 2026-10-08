@@ -9,7 +9,7 @@ CI runs unit and local integration tests on macOS, Linux, and Windows. Installer
 | Fedora/RHEL family | DNF prerequisites and common build dependency mappings. Individual runtime/package availability varies. |
 | Arch / Alpine | pacman / APK prerequisites. Arch requires an already maintained package database; archive runtime libc restrictions still apply. |
 | Arch | Shared package tasks do not select pacman. Incomplete. |
-| Windows | Node/Go/Java/Bun/Deno archives and pnpm/Yarn prefixes; Python/Git/Docker setup still manual. Scripts use cmd.exe. |
+| Windows | Node/Go/Java/Bun/Deno archives and pnpm/Yarn prefixes; Git MinGit archives; Python/Docker setup still manual. Scripts use cmd.exe. |
 
 Default Go and Java Unix destinations require permissions; `install_dir` can select a writable location. The code does not automatically elevate archive extraction. Node through NVM is a user installation.
 

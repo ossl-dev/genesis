@@ -27,6 +27,7 @@ export const optionSchemas = {
   git: z.object({
     version: z.union([version, z.literal("latest")]).default("latest"),
     install_method: z.enum(["package", "source", "binary"]).default("package"),
+    install_dir: installDirectory,
   }).strict().default({ version: "latest", install_method: "package" }),
   docker: z.object({
     version: z.union([version, z.literal("latest")]).default("latest"),

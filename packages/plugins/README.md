@@ -13,7 +13,7 @@ export default defineConfig({
 
 Factories return plugin instances; `loadPlugins` loads their implementations and validates/defaults options. Global packages install after Node/Homebrew is ready. Requested runtimes already present on PATH skip system prerequisites.
 
-See the [plugin overview](../../apps/docs/plugins/overview.md) for supported paths and the [lifecycle reference](../../apps/docs/plugins/lifecycle.md) for dependencies and hooks. Archive and npm-prefix installers support Windows targets; Python/Git Windows installers and non-APT Linux package tasks remain unfinished. Git source/binary installation is experimental. Staged installers recover failed replacements; system-wide rollback is not implemented.
+See the [plugin overview](../../apps/docs/plugins/overview.md) for supported paths and the [lifecycle reference](../../apps/docs/plugins/lifecycle.md) for dependencies and hooks. Archive and npm-prefix installers support Windows targets; Python Windows installation remains manual. Shared Linux tasks select APT/DNF/pacman/APK. Git supports pinned Unix source builds and Windows MinGit archives. Staged installers recover failed replacements; system-wide rollback is not implemented.
 
 From the repository root: `bun run build`, `bun run lint`, `bun run test`.
 

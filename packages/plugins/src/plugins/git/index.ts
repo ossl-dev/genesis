@@ -1,461 +1,126 @@
-import { optionSchemas, matchesVersion } from "../../options.js";
-import {
-  type GenesisPlugin,
-  type GenesisPluginInstance,
-  type PluginRuntime,
-  runCommand,
-  getPlatform,
-  createPackageManagerUpdateTask,
-  createPackageInstallTask,
-} from "@ossl/genesis-core";
+import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import fs from "node:fs";
+import { type GenesisPlugin, type GenesisPluginInstance, type PluginRuntime, runCommand, getPlatform, createPackageManagerUpdateTask, createPackageInstallTask } from "@ossl/genesis-core";
+import { optionSchemas, matchesVersion } from "../../options.js";
+import { InstallationRecoveryError, installArchive, prependPath, singleDirectory } from "../../install/archive.js";
+import { gitSourceRelease, gitWindowsRelease } from "../../install/git-release.js";
 
 export interface GitOptions {
   version?: string;
   install_method?: "package" | "source" | "binary";
+  install_dir?: string;
 }
 
-export function git(
-  options: GitOptions = {},
-): GenesisPluginInstance<GitOptions> {
-  return {
-    id: "git",
-    category: "tool",
-    module: "@ossl/genesis-plugins/git",
-    options: {
-      version: options.version ?? "latest",
-      install_method: options.install_method ?? "package",
-    },
-  };
+export function git(options: GitOptions = {}): GenesisPluginInstance<GitOptions> {
+  return { id: "git", category: "tool", module: "@ossl/genesis-plugins/git", options: { version: "latest", install_method: "package", ...options } };
 }
 
-/**
- * Parse Git version from command output
- */
-function parseGitVersion(output: string): string | undefined {
-  const match = output.match(/git version (\d+\.\d+\.\d+)/);
-  return match?.[1];
+function directory(runtime: PluginRuntime<GitOptions>): string {
+  return runtime.options.install_dir ?? path.join((getPlatform() === "windows" ? runtime.context.env.USERPROFILE : runtime.context.env.HOME) ?? os.homedir(), ".genesis", "git");
 }
 
-/**
- * Check if Git is available and get version
- */
+function executable(root: string): string {
+  return path.join(root, getPlatform() === "windows" ? "cmd" : "bin", getPlatform() === "windows" ? "git.exe" : "git");
+}
+
+async function checkGit(runtime: PluginRuntime<GitOptions>, command: string, requested = runtime.options.version ?? "latest") {
+  const result = await runCommand(command, ["--version"], { cwd: runtime.context.cwd, env: runtime.context.env });
+  if (result.code !== 0) return { ok: false, details: "Git is not available on PATH or in its installation directory" };
+  const version = (result.stdout || result.stderr).match(/git version (\d+\.\d+\.\d+)/)?.[1];
+  if (!version) return { ok: false, details: "Git version could not be determined" };
+  return requested === "latest" || matchesVersion(version, requested)
+    ? { ok: true, details: `Detected Git ${version}` }
+    : { ok: false, details: `Detected Git ${version} but ${requested} is requested` };
+}
+
 async function detectGit(runtime: PluginRuntime<GitOptions>) {
-  const result = await runCommand("git", ["--version"], {
-    cwd: runtime.context.cwd,
-    env: runtime.context.env,
-  });
-
-  if (result.code !== 0) {
-    return {
-      ok: false,
-      details: "Git is not available on PATH",
-    };
-  }
-
-  const version = parseGitVersion(result.stdout || result.stderr);
-  if (!version) {
-    return {
-      ok: false,
-      details: "Git version could not be determined",
-    };
-  }
-
-  // If specific version requested, check if it matches
-  if (runtime.options.version && runtime.options.version !== "latest") {
-    if (matchesVersion(version, runtime.options.version)) {
-      return {
-        ok: true,
-        details: `Detected Git ${version}`,
-      };
-    }
-    return {
-      ok: false,
-      details: `Detected Git ${version} but ${runtime.options.version} is requested`,
-    };
-  }
-
-  return {
-    ok: true,
-    details: `Detected Git ${version}`,
-  };
+  const managed = runtime.options.install_method !== "package";
+  const target = executable(directory(runtime));
+  const exists = managed && fs.existsSync(target);
+  const result = await checkGit(runtime, exists || (managed && runtime.options.install_dir) ? target : "git");
+  if (result.ok && exists) prependPath(runtime.context.env, path.dirname(target));
+  return result;
 }
 
-/**
- * Install Git from source on Linux/macOS
- */
-async function installGitFromSource(
-  runtime: PluginRuntime<GitOptions>,
-): Promise<{ ok: boolean; details: string }> {
-  const { logger } = runtime.context;
+function unsupported(runtime: PluginRuntime<GitOptions>): string | undefined {
   const platform = getPlatform();
-
-  logger.info("Installing Git from source...");
-
-  try {
-    const tempDir = os.tmpdir();
-    const gitSourceDir = path.join(tempDir, "git-source");
-
-    // Clean up any previous source directory
-    if (fs.existsSync(gitSourceDir)) {
-      await fs.promises.rm(gitSourceDir, { recursive: true, force: true });
-    }
-
-    // Clone Git source repository
-    logger.debug("Cloning Git source repository");
-    const cloneResult = await runCommand("git", [
-      "clone",
-      "https://github.com/git/git.git",
-      gitSourceDir,
-    ]);
-
-    if (cloneResult.code !== 0) {
-      throw new Error(`Failed to clone Git repository: ${cloneResult.stderr}`);
-    }
-
-    // Install dependencies based on platform
-    const dependencies =
-      platform === "macos"
-        ? ["gettext", "openssl", "zlib"]
-        : ["libssl-dev", "libcurl4-openssl-dev", "zlib1g-dev", "libexpat1-dev"];
-
-    for (const dep of dependencies) {
-      const depResult = await runCommand(
-        platform === "macos" ? "brew" : "sudo apt-get",
-        ["install", "-y", dep],
-      );
-      if (depResult.code !== 0) {
-        logger.warn(`Failed to install ${dep}: ${depResult.stderr}`);
-      }
-    }
-
-    // Build and install Git
-    logger.debug("Building Git from source");
-    const buildCommands = ["make all", "sudo make install"];
-
-    for (const cmd of buildCommands) {
-      const [command, ...args] = cmd.split(" ");
-      const buildResult = await runCommand(command, args, {
-        cwd: gitSourceDir,
-      });
-
-      if (buildResult.code !== 0) {
-        throw new Error(`Failed to build Git: ${buildResult.stderr}`);
-      }
-    }
-
-    // Clean up
-    await fs.promises.rm(gitSourceDir, { recursive: true, force: true });
-
-    logger.info("Git installed from source successfully");
-
-    return {
-      ok: true,
-      details: "Git installed from source",
-    };
-  } catch (error) {
-    logger.error(`Failed to install Git from source: ${error}`);
-    return {
-      ok: false,
-      details: `Git source installation failed: ${error}`,
-    };
-  }
+  if (runtime.options.install_method === "binary" && platform !== "windows") return "Git publishes no standalone Unix binaries; use package or source installation";
+  if (runtime.options.install_method === "source" && platform === "windows") return "Git source builds on Windows are unsupported; use install_method: binary for MinGit";
+  if (runtime.options.install_method === "package" && platform === "windows") return "Use install_method: binary for automatic MinGit installation on Windows, or preinstall Git";
+  if (runtime.options.install_method === "package" && runtime.options.install_dir) return "install_dir requires source or binary installation";
 }
 
-/**
- * Download and install Git binary on Linux/macOS
- */
-async function installGitFromBinary(
-  runtime: PluginRuntime<GitOptions>,
-): Promise<{ ok: boolean; details: string }> {
-  const { logger } = runtime.context;
-  const platform = getPlatform();
-  const arch = os.arch();
-
-  logger.info("Installing Git from binary...");
-
-  // Determine the correct binary URL
-  const archMap: Record<string, string> = {
-    x64: "x86_64",
-    arm64: "arm64",
-  };
-  const platformMap: Record<string, string> = {
-    macos: "darwin",
-    linux: "linux",
-  };
-
-  const archSuffix = archMap[arch] || "x86_64";
-  const platformSuffix = platformMap[platform] || "linux";
-
-  // Use GitHub releases for Git binaries
-  const gitVersion =
-    runtime.options.version && runtime.options.version !== "latest"
-      ? runtime.options.version
-      : "2.43.0";
-  const fileName = `git-${platformSuffix}-${archSuffix}.tar.gz`;
-  const downloadUrl = `https://github.com/git/git/releases/download/v${gitVersion}/${fileName}`;
-
-  try {
-    // Download the binary
-    const tempDir = os.tmpdir();
-    const archivePath = path.join(tempDir, fileName);
-
-    logger.debug(`Downloading Git from ${downloadUrl}`);
-    const downloadResult = await runCommand("curl", [
-      "-L",
-      "-o",
-      archivePath,
-      downloadUrl,
-    ]);
-
-    if (downloadResult.code !== 0) {
-      throw new Error(`Failed to download Git: ${downloadResult.stderr}`);
-    }
-
-    // Extract to /usr/local
-    logger.debug(`Extracting Git to /usr/local`);
-    const extractResult = await runCommand("tar", [
-      "-C",
-      "/usr/local",
-      "-xzf",
-      archivePath,
-    ]);
-
-    if (extractResult.code !== 0) {
-      throw new Error(`Failed to extract Git binary: ${extractResult.stderr}`);
-    }
-
-    // Clean up
-    await fs.promises.unlink(archivePath);
-
-    logger.info("Git binary installed successfully");
-
-    return {
-      ok: true,
-      details: "Git installed from binary",
-    };
-  } catch (error) {
-    logger.error(`Failed to install Git binary: ${error}`);
-    return {
-      ok: false,
-      details: `Git binary installation failed: ${error}`,
-    };
-  }
-}
-
-/**
- * Log Windows installation guide for Git
- */
-function logWindowsGitGuide(logger: any): void {
-  logger.warn("Automatic Git installation on Windows requires manual steps");
-  logger.info("");
-  logger.info("=== Git for Windows Installation Guide ===");
-  logger.info("");
-  logger.info("1. Visit the Git downloads page:");
-  logger.info("   https://git-scm.com/download/win");
-  logger.info("");
-  logger.info("2. Download the Git installer:");
-  logger.info("   - The download should start automatically");
-  logger.info("   - Or click '64-bit Git for Windows Setup'");
-  logger.info("");
-  logger.info("3. Run the installer:");
-  logger.info("   - Double-click the downloaded .exe file");
-  logger.info("   - Follow the installation wizard");
-  logger.info("   - Accept default settings or customize as needed");
-  logger.info("");
-  logger.info("4. Verify installation:");
-  logger.info("   - Open Command Prompt, PowerShell, or Git Bash");
-  logger.info("   - Run: git --version");
-  logger.info("");
-  logger.info("5. Configure Git (optional):");
-  logger.info("   git config --global user.name 'Your Name'");
-  logger.info("   git config --global user.email 'your.email@example.com'");
-  logger.info("");
-  logger.info("===========================================");
-  logger.info("");
-}
-
-export function createPlugin(
-  instance: GenesisPluginInstance<GitOptions>,
-): GenesisPlugin<GitOptions> {
+export function createPlugin(instance: GenesisPluginInstance<GitOptions>): GenesisPlugin<GitOptions> {
   return {
-    id: instance.id,
-    category: instance.category,
+    id: instance.id, category: instance.category,
     parseOptions: options => optionSchemas.git.parse(options),
-    async detect(runtime) {
-      return detectGit(runtime);
+    detect: detectGit,
+    async prepare(runtime) {
+      const reason = unsupported(runtime);
+      if (reason && !(await detectGit(runtime)).ok) throw new Error(reason);
     },
     async registerTasks(runtime) {
-      const { taskRegistry, logger } = runtime.context;
-      const { install_method } = runtime.options;
-      const platform = getPlatform();
-
-      // Skip task registration for Windows (use installer)
-      if (platform === "windows") {
-        return;
-      }
-
-      if ((await this.detect!(runtime)).ok) return;
-
-      logger.debug("Registering system tasks for Git installation");
-
-      if (install_method === "package") {
-        // Register package manager update (will be deduplicated across plugins)
-        const updateTask = createPackageManagerUpdateTask(
-          runtime.context.cwd,
-          runtime.context.env,
-        );
-        taskRegistry.register(updateTask);
-
-        // Register Git installation via package manager
-        const packageName = platform === "macos" ? "git" : "git-all";
-        const gitTask = createPackageInstallTask(
-          packageName,
-          runtime.context.cwd,
-          runtime.context.env,
-        );
-        taskRegistry.register(gitTask);
-
-        logger.debug(
-          `System tasks registered: package manager update, ${packageName} installation`,
-        );
-      } else {
-        // For source or binary installation, we need build tools
-        const updateTask = createPackageManagerUpdateTask(
-          runtime.context.cwd,
-          runtime.context.env,
-        );
-        taskRegistry.register(updateTask);
-
-        if (install_method === "source") {
-          // Source installation needs build tools
-          const buildPackages =
-            platform === "macos"
-              ? ["make", "gcc", "autoconf"]
-              : ["build-essential", "autoconf", "make"];
-
-          for (const pkg of buildPackages) {
-            const task = createPackageInstallTask(
-              pkg,
-              runtime.context.cwd,
-              runtime.context.env,
-            );
-            taskRegistry.register(task);
-          }
-        } else {
-          // Binary installation needs curl and tar
-          const curlTask = createPackageInstallTask(
-            "curl",
-            runtime.context.cwd,
-            runtime.context.env,
-          );
-          taskRegistry.register(curlTask);
-
-          const tarTask = createPackageInstallTask(
-            "tar",
-            runtime.context.cwd,
-            runtime.context.env,
-          );
-          taskRegistry.register(tarTask);
-        }
-
-        logger.debug(
-          `System tasks registered: package manager update, build tools for ${install_method} installation`,
-        );
-      }
+      if (unsupported(runtime) || runtime.options.install_method === "binary" || (await detectGit(runtime)).ok) return;
+      const { cwd, env, taskRegistry } = runtime.context;
+      taskRegistry.register(createPackageManagerUpdateTask(cwd, env));
+      const packages = runtime.options.install_method === "package" ? ["git"]
+        : getPlatform() === "macos" ? ["make"]
+        : ["build-essential", "libcurl4-openssl-dev", "zlib1g-dev", "libexpat1-dev", "perl"];
+      for (const name of packages) taskRegistry.register(createPackageInstallTask(name, cwd, env));
     },
     async apply(runtime) {
-      const { logger } = runtime.context;
-      const { install_method } = runtime.options;
-      const platform = getPlatform();
-
-      // Check if Git is already installed and correct version
-      const detectResult = await detectGit(runtime);
-      if (detectResult.ok) {
-        logger.info(detectResult.details || "Git is already installed");
-        return {
-          ok: true,
-          didChange: false,
-          details: detectResult.details,
-        };
-      }
-
-      // Handle Windows separately
-      if (platform === "windows") {
-        logWindowsGitGuide(logger);
-        return {
-          ok: false,
-          didChange: false,
-          details:
-            "Automatic installation not supported on Windows. See installation guide in logs.",
-        };
-      }
-
-      // macOS/Linux installation
-      let installResult: { ok: boolean; details: string };
-
-      switch (install_method) {
-        case "package":
-          logger.info("Installing Git via package manager...");
-          return { ok: false, didChange: false, details: `Git is still unavailable after package installation: ${detectResult.details}` };
-
-        case "source":
-          installResult = await installGitFromSource(runtime);
-          break;
-
-        case "binary":
-          installResult = await installGitFromBinary(runtime);
-          break;
-
-        default:
-          installResult = {
-            ok: false,
-            details: `Unknown installation method: ${install_method}`,
-          };
-      }
-
-      if (!installResult.ok) {
-        logger.error("Failed to install Git");
-        return {
-          ok: false,
-          didChange: false,
-          details: installResult.details,
-        };
-      }
-
-      // Configure Git with sensible defaults
-      logger.info("Configuring Git with default settings...");
-
+      const detected = await detectGit(runtime);
+      if (detected.ok) return { ok: true, didChange: false, details: detected.details };
+      const reason = unsupported(runtime);
+      if (reason) return { ok: false, didChange: false, details: reason };
+      if (runtime.options.install_method === "package") return { ok: false, didChange: false, details: `Git is still unavailable after package installation: ${detected.details}; use source installation for a release pin` };
       try {
-        // Set some sensible defaults
-        await runCommand("git", [
-          "config",
-          "--global",
-          "init.defaultBranch",
-          "main",
-        ]);
-        await runCommand("git", ["config", "--global", "pull.rebase", "false"]);
-
-        logger.info("Git configured with default settings");
+        const windows = getPlatform() === "windows";
+        const release = await (windows ? gitWindowsRelease : gitSourceRelease)(runtime.options.version ?? "latest");
+        const destination = directory(runtime);
+        await installArchive({
+          release, destination, executable: path.relative(destination, executable(destination)), context: runtime.context,
+          async select(root) {
+            if (windows) return root;
+            const extracted = await singleDirectory(root);
+            const staged = path.join(root, "install");
+            // Git's Makefile requires a source path without whitespace. Keep the
+            // final prefix in staging, but compile in an isolated temporary path.
+            if (/\s/.test(os.tmpdir())) throw new Error("Git source builds require a temporary directory without whitespace; set TMPDIR");
+            const work = await fs.promises.mkdtemp(path.join(os.tmpdir(), "genesis-git-"));
+            const source = path.join(work, "source");
+            try {
+              await fs.promises.cp(extracted, source, { recursive: true });
+              const args = ["prefix=/usr/local", "RUNTIME_PREFIX=YesPlease", "NO_GETTEXT=YesPlease", "NO_TCLTK=YesPlease", "NO_OPENSSL=YesPlease"];
+              for (const step of [[`-j${Math.min(os.cpus().length || 1, 8)}`, ...args, "all"], [...args, `DESTDIR=${staged}`, "install"]]) {
+                const result = await runCommand("make", step, { cwd: source, env: runtime.context.env });
+                if (result.code !== 0) throw new Error(`Git build failed: ${result.stderr || result.stdout}`);
+              }
+            } finally {
+              await fs.promises.rm(work, { recursive: true, force: true }).catch(error => runtime.context.logger.warn(`Could not remove Git build directory ${work}: ${error}`));
+            }
+            return path.join(staged, "usr", "local");
+          },
+          async verify(root) {
+            const result = await checkGit(runtime, executable(root), release.version);
+            if (!result.ok) throw new Error(result.details);
+            const helpers = await runCommand(executable(root), ["--exec-path"], { cwd: runtime.context.cwd, env: runtime.context.env });
+            const helperDirectory = helpers.stdout.trim();
+            const relative = path.relative(await fs.promises.realpath(root), await fs.promises.realpath(helperDirectory));
+            if (helpers.code !== 0 || path.isAbsolute(relative) || relative === ".." || relative.startsWith(`..${path.sep}`) || !fs.existsSync(path.join(helperDirectory, windows ? "git-remote-https.exe" : "git-remote-https"))) throw new Error("Git HTTPS helper is unavailable inside the installation directory");
+          },
+        });
+        prependPath(runtime.context.env, path.dirname(executable(destination)));
+        runtime.context.logger.info(`Add ${path.dirname(executable(destination))} to your shell PATH for future sessions.`);
+        return { ok: true, didChange: true, details: `Git ${release.version} installed to ${destination}` };
       } catch (error) {
-        logger.warn(`Failed to configure Git: ${error}`);
+        return { ok: false, didChange: error instanceof InstallationRecoveryError, details: `Git installation failed: ${error instanceof Error ? error.message : error}` };
       }
-
-      logger.info("Git installation completed successfully");
-      return {
-        ok: true,
-        didChange: true,
-        details: installResult.details,
-      };
     },
     async validate(runtime) {
-      const detectResult = await detectGit(runtime);
-      return {
-        ok: detectResult.ok,
-        message: detectResult.details,
-      };
+      const result = await detectGit(runtime);
+      return { ok: result.ok, message: result.details };
     },
   };
 }

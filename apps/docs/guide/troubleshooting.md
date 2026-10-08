@@ -28,7 +28,7 @@ A failed system prerequisite stops plugin apply. Debug logs can show registered 
 GENESIS_DEBUG=1 bun /path/to/genesis/apps/cli/dist/index.js apply
 ```
 
-Check the reported package command, permissions, network access, and package availability. Shared Linux tasks currently use APT. On macOS, include Homebrew in the config or preinstall it before tools that need brew tasks. Archive extraction into system directories also requires filesystem permissions.
+Check the reported package command, permissions, network access, and package availability. Shared Linux tasks select APT/DNF/pacman/APK from `os-release`. Unknown distributions fail explicitly. On macOS, include Homebrew in the config or preinstall it before tools that need brew tasks. Archive extraction into system directories also requires filesystem permissions.
 
 ## Tool installed but validation still fails
 

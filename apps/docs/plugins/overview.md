@@ -12,7 +12,7 @@ Genesis includes eleven plugin implementations. Installation paths and validatio
 | [Python](/plugins/python) | brew or APT | Requested package and execution PATH must match |
 | [Go](/plugins/go) | Checksummed, staged archive | Full version; default Unix directories need permissions |
 | [Java](/plugins/java) | Checksummed Temurin archive | Oracle JDK manual; published x64/ARM64 builds |
-| [Git](/plugins/git) | brew or APT | Source/binary paths experimental |
+| [Git](/plugins/git) | System packages, verified Unix source, Windows MinGit | Managed release pins; MinGit requires a published checksum |
 | [Docker](/plugins/docker) | Colima or Linux installer | Desktop manual; Linux distro support partial |
 | [Homebrew](/plugins/homebrew) | macOS installer | Same-config bootstrap precedes shared tasks |
 

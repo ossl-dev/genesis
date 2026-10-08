@@ -22,4 +22,4 @@ The CLI's JavaScript entrypoint has a Node shebang. YAML configs can run under N
 
 No Homebrew formula, winget manifest, apt repository, or published standalone release is supplied here. The existing standalone build scripts are experimental and do not establish a distribution pipeline.
 
-On macOS, include the Homebrew plugin to bootstrap shared brew tasks, or preinstall brew. On Debian/Ubuntu, system package tasks invoke sudo/APT. Other Linux package-manager paths and Windows Python/Git installation remain incomplete; archive runtimes and npm-prefix plugins support Windows targets. Check [Platform Support](/guide/platform-support).
+On macOS, include the Homebrew plugin to bootstrap shared brew tasks, or preinstall brew. On Debian/Ubuntu, system package tasks invoke sudo/APT. Linux tasks also select DNF/pacman/APK; Windows Python installation remains manual; archive runtimes and npm-prefix plugins support Windows targets. Check [Platform Support](/guide/platform-support).

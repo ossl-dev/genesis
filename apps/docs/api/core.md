@@ -32,7 +32,7 @@ func RunApplyPrerequisites(nodes []Node, runtime *Runtime) error
 func RunApply(nodes []Node, runtime *Runtime) ([]ApplySummary, error)
 ```
 
-Graph validation rejects duplicate IDs, missing dependencies, and cycles before provisioning. `RunDiff` reports detection status rather than a complete package/version diff. `RunApply` runs prerequisites, then each plugin's pre/apply/post hooks. Failed system tasks stop apply. A plugin returning `OK: false` blocks its dependents while independent plugins can continue. A returned hook error stops sequential execution.
+Graph validation rejects duplicate IDs, missing dependencies, and cycles before provisioning. `RunDiff` reports detection status rather than a complete package/version diff. `RunApply` runs prerequisites, then each plugin's pre/apply/post hooks. Failed system tasks stop apply. A plugin returning `OK: false` blocks its dependents while independent plugins can continue. A returned hook error stops sequential execution and returns summaries for completed plugins plus a failed summary for the current plugin. The current summary preserves `DidChange` and partial details returned by apply; a post-apply error retains changes from successful apply. Pre-apply errors report no changes because that hook has no change-result field. The wrapped error preserves its cause for `errors.Is`.
 
 ## Environment execution
 

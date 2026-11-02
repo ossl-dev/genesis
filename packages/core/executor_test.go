@@ -175,3 +175,50 @@ func TestLastSequentialPluginCancellationPreservesContextError(t *testing.T) {
 		t.Fatal(results, err)
 	}
 }
+
+func TestApplyErrorsRetainCurrentPartialSummary(t *testing.T) {
+	for _, stage := range []string{"pre", "apply", "post"} {
+		t.Run(stage, func(t *testing.T) {
+			failure := errors.New("operation failed")
+			previous, current, later := testNode("previous"), testNode("current"), testNode("later")
+			previous.Plugin.Apply = func(*Runtime, Instance) (ApplyResult, error) {
+				return ApplyResult{OK: true, DidChange: true, Details: "previous finished"}, nil
+			}
+			current.Plugin.Apply = func(*Runtime, Instance) (ApplyResult, error) {
+				return ApplyResult{OK: true, DidChange: true, Details: "installation changed"}, nil
+			}
+			switch stage {
+			case "pre":
+				current.Plugin.PreApply = func(*Runtime, Instance) error { return failure }
+				current.Plugin.Apply = func(*Runtime, Instance) (ApplyResult, error) {
+					t.Fatal("apply after pre hook error")
+					return ApplyResult{}, nil
+				}
+			case "apply":
+				current.Plugin.Apply = func(*Runtime, Instance) (ApplyResult, error) {
+					return ApplyResult{DidChange: true, Details: "partial installation"}, failure
+				}
+			case "post":
+				current.Plugin.PostApply = func(*Runtime, Instance) error { return failure }
+			}
+			later.Plugin.Apply = func(*Runtime, Instance) (ApplyResult, error) {
+				t.Fatal("plugin ran after error")
+				return ApplyResult{}, nil
+			}
+			summaries, err := RunApply([]Node{previous, current, later}, &Runtime{})
+			if !errors.Is(err, failure) || len(summaries) != 2 {
+				t.Fatal(summaries, err)
+			}
+			if !summaries[0].OK || !summaries[0].DidChange || summaries[0].Details != "previous finished" {
+				t.Fatal("previous summary lost", summaries[0])
+			}
+			summary := summaries[1]
+			if summary.ID != "current" || summary.Category != "tool" || summary.OK || summary.DidChange != (stage != "pre") || !strings.Contains(summary.Details, failure.Error()) {
+				t.Fatal(summary)
+			}
+			if stage == "apply" && !strings.Contains(summary.Details, "partial installation") {
+				t.Fatal("partial details lost", summary)
+			}
+		})
+	}
+}

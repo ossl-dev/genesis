@@ -44,7 +44,7 @@ Use `Run(command, args...)` for commands with runtime cwd/environment, or `RunWi
 | Apply | `OK`, `DidChange`, `Details` |
 | Validate | `OK`, `Message` |
 
-Verify installed versions after commands succeed. An apply result with `OK: false` skips its post hook and blocks dependents. Sequential hook errors stop execution. Parallel errors/panics are recorded as failed plugin results. Successful unchanged applies still run their pre/post hooks, so hooks must be repeatable.
+Verify installed versions after commands succeed. An apply result with `OK: false` skips its post hook and blocks dependents. Sequential hook errors stop execution and retain a failed current summary alongside earlier results. An apply error preserves its returned `DidChange`; a post-apply error preserves the apply result's change flag. Pre-apply errors report no changes. Parallel errors/panics are recorded as failed plugin results. Successful unchanged applies still run their pre/post hooks, so hooks must be repeatable.
 
 A missing detect hook reports `unknown`; missing validation reports success. A missing apply hook succeeds without changes. Supply those methods when meaningful verification is required.
 

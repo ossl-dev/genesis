@@ -212,3 +212,26 @@ func TestSerializedResourcePhaseKeepsLifecycleAndPanicIsolation(t *testing.T) {
 		t.Fatal(events)
 	}
 }
+func TestParallelHookErrorsRetainChanges(t *testing.T) {
+	for _, stage := range []string{"pre", "apply", "post"} {
+		t.Run(stage, func(t *testing.T) {
+			failure := errors.New("operation failed")
+			node := testNode("current")
+			node.Plugin.Apply = func(*Runtime, Instance) (ApplyResult, error) { return ApplyResult{OK: true, DidChange: true}, nil }
+			switch stage {
+			case "pre":
+				node.Plugin.PreApply = func(*Runtime, Instance) error { return failure }
+			case "apply":
+				node.Plugin.Apply = func(*Runtime, Instance) (ApplyResult, error) { return ApplyResult{DidChange: true}, failure }
+			case "post":
+				node.Plugin.PostApply = func(*Runtime, Instance) error { return failure }
+			}
+			engine, _ := NewParallelExecutionEngine(2)
+			plan, _ := engine.CreateExecutionPlan([]Node{node})
+			results, err := engine.ExecuteParallel(plan, &Runtime{})
+			if err != nil || len(results) != 1 || results[0].Success || results[0].DidChange != (stage != "pre") || results[0].Error != failure.Error() {
+				t.Fatal(results, err)
+			}
+		})
+	}
+}

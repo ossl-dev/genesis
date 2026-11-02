@@ -194,6 +194,11 @@ func RunApply(nodes []Node, r *Runtime) ([]ApplySummary, error) {
 		} else {
 			out, err = applyNode(n, r)
 			if err != nil {
+				details := err.Error()
+				if out.Details != "" && out.Details != details {
+					details = out.Details + ": " + details
+				}
+				results = append(results, ApplySummary{ID: n.Instance.ID, Category: n.Instance.Category, DidChange: out.DidChange, Details: details})
 				return results, fmt.Errorf("plugin %s apply: %w", n.Instance.ID, err)
 			}
 		}

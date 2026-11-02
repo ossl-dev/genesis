@@ -42,3 +42,20 @@ These checks cannot infer symlink aliases, package-manager locks, shell-profile 
 `PluginMetrics.MemoryUsage` samples positive changes in the Genesis process's heap object bytes. `CPUUsage` estimates process user CPU seconds divided by plugin wall time using Go runtime counters. Samples overlap during concurrent work, may update coarsely, and exclude subprocess usage. Zero is possible without a sampled increase. These are process diagnostics, not isolated plugin accounting.
 
 `GetMetrics()` returns the latest metrics per plugin. `GetExecutionHistory()` returns retained results; callers reusing an engine can release history through `ClearHistory()` and estimates through `ResetMetrics()`. The CLI creates an engine per invocation.
+
+## Scheduling overhead
+
+Graph traversal indexes nodes once and keeps visit state in a byte slice. Sequential apply reuses validated order between its internal lifecycle steps; public entry points still validate dependencies before provisioning.
+
+Local medians from five benchmark runs on an Apple M2 Pro, darwin/arm64, Go 1.27.3:
+
+| Operation | Before | After | Allocated bytes before → after | Allocations before → after |
+| --- | --- | --- | --- | --- |
+| Graph, 11 nodes | 1,836 ns | 595 ns | 4,896 → 2,504 | 18 → 4 |
+| Apply, 11 nodes | 6,375 ns | 2,098 ns | 16,056 → 6,376 | 63 → 17 |
+| Graph, 1,000 nodes | 232,999 ns | 52,071 ns | 573,745 → 235,858 | 1,041 → 7 |
+| Apply, 1,000 nodes | 791,710 ns | 189,491 ns | 1,887,616 → 638,091 | 3,149 → 40 |
+
+These benchmarks use dependency chains with no-op plugins and an empty runtime environment. They measure core overhead, excluding installers, network, and child processes. Allocation profiling attributed 91% of baseline apply allocations to graph construction. Actual provisioning time depends on the requested tools and host.
+
+Run `go test ./packages/core -run '^$' -bench 'Benchmark(BuildPluginGraph|ApplyEnvironment)$' -benchmem -count=5` to compare on another host.

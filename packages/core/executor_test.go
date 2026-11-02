@@ -5,6 +5,7 @@ import (
 	"errors"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -126,5 +127,41 @@ func TestDetectValidateMissingHooks(t *testing.T) {
 	validated, err := RunValidate(nodes, &Runtime{})
 	if err != nil || !validated[0].OK || validated[2].OK {
 		t.Fatal(validated, err)
+	}
+}
+
+func TestGraphTraversalPreservesStableOrderAndInput(t *testing.T) {
+	nodes := []Node{testNode("last", "left", "right"), testNode("right", "base"), testNode("left", "base"), testNode("base"), testNode("independent")}
+	expected := []string{"base", "left", "right", "last", "independent"}
+	var wg sync.WaitGroup
+	for i := 0; i < 20; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			ordered, err := BuildPluginGraph(nodes)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			ids := make([]string, len(ordered))
+			for i, n := range ordered {
+				ids[i] = n.Instance.ID
+			}
+			if !reflect.DeepEqual(ids, expected) {
+				t.Error(ids)
+			}
+			ordered[0].Instance.ID = "changed"
+		}()
+	}
+	wg.Wait()
+	if nodes[0].Instance.ID != "last" || nodes[3].Instance.ID != "base" {
+		t.Fatal("input order or identity mutated", nodes)
+	}
+}
+func TestPrerequisitesRejectInvalidGraphBeforeHooks(t *testing.T) {
+	node := testNode("bad", "missing")
+	node.Plugin.Prepare = func(*Runtime, Instance) error { t.Fatal("invalid graph reached hook"); return nil }
+	if err := RunApplyPrerequisites([]Node{node}, &Runtime{}); err == nil {
+		t.Fatal("missing dependency accepted")
 	}
 }

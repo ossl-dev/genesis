@@ -26,39 +26,41 @@ type ValidateSummary struct {
 }
 
 func BuildPluginGraph(nodes []Node) ([]Node, error) {
-	byID := map[string]Node{}
-	for _, n := range nodes {
-		if _, exists := byID[n.Instance.ID]; exists {
-			return nil, fmt.Errorf("duplicate plugin id '%s'", n.Instance.ID)
+	byID := make(map[string]int, len(nodes))
+	for index := range nodes {
+		id := nodes[index].Instance.ID
+		if _, exists := byID[id]; exists {
+			return nil, fmt.Errorf("duplicate plugin id '%s'", id)
 		}
-		byID[n.Instance.ID] = n
+		byID[id] = index
 	}
-	states := map[string]int{}
+	states := make([]uint8, len(nodes))
 	ordered := make([]Node, 0, len(nodes))
-	var visit func(string) error
-	visit = func(id string) error {
-		if states[id] == 2 {
+	var visit func(int) error
+	visit = func(index int) error {
+		if states[index] == 2 {
 			return nil
 		}
-		if states[id] == 1 {
-			return fmt.Errorf("cyclic plugin dependency involving '%s'", id)
+		n := &nodes[index]
+		if states[index] == 1 {
+			return fmt.Errorf("cyclic plugin dependency involving '%s'", n.Instance.ID)
 		}
-		n, ok := byID[id]
-		if !ok {
-			return fmt.Errorf("missing plugin '%s' referenced in dependency", id)
-		}
-		states[id] = 1
-		for _, dep := range n.Plugin.DependsOn {
-			if err := visit(dep); err != nil {
+		states[index] = 1
+		for _, id := range n.Plugin.DependsOn {
+			dependency, exists := byID[id]
+			if !exists {
+				return fmt.Errorf("missing plugin '%s' referenced in dependency", id)
+			}
+			if err := visit(dependency); err != nil {
 				return err
 			}
 		}
-		states[id] = 2
-		ordered = append(ordered, n)
+		states[index] = 2
+		ordered = append(ordered, *n)
 		return nil
 	}
-	for _, n := range nodes {
-		if err := visit(n.Instance.ID); err != nil {
+	for index := range nodes {
+		if err := visit(index); err != nil {
 			return nil, err
 		}
 	}
@@ -109,11 +111,16 @@ func RunValidate(nodes []Node, r *Runtime) ([]ValidateSummary, error) {
 	return results, nil
 }
 func RunApplyPrerequisites(nodes []Node, r *Runtime) error {
-	r.Ensure()
 	ordered, err := BuildPluginGraph(nodes)
 	if err != nil {
 		return err
 	}
+	return runApplyPrerequisitesOrdered(ordered, r)
+}
+
+// Internal callers may reuse a graph validated immediately before this call.
+func runApplyPrerequisitesOrdered(ordered []Node, r *Runtime) error {
+	r.Ensure()
 	for _, hook := range []func(Plugin) Hook{func(p Plugin) Hook { return p.Prepare }, func(p Plugin) Hook { return p.RegisterTasks }} {
 		for _, n := range ordered {
 			if err := r.Context.Err(); err != nil {
@@ -169,7 +176,7 @@ func RunApply(nodes []Node, r *Runtime) ([]ApplySummary, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err = RunApplyPrerequisites(ordered, r); err != nil {
+	if err = runApplyPrerequisitesOrdered(ordered, r); err != nil {
 		return nil, err
 	}
 	results := make([]ApplySummary, 0, len(nodes))

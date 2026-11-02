@@ -15,8 +15,13 @@ type Definition struct {
 }
 
 func Builtins() []Definition {
-	return []Definition{{"node", "tool", "builtin:node", "Node.js JavaScript runtime"}, {"bun", "tool", "builtin:bun", "Bun JavaScript runtime"}, {"deno", "tool", "builtin:deno", "Deno JavaScript runtime"}, {"pnpm", "tool", "builtin:pnpm", "pnpm package manager"}, {"yarn", "tool", "builtin:yarn", "Yarn Classic and modern package manager"}, {"python", "language", "builtin:python", "Python programming language"}, {"go", "language", "builtin:go", "Go programming language"}, {"java", "language", "builtin:java", "Java development kit"}, {"docker", "tool", "builtin:docker", "Docker container runtime"}, {"homebrew", "tool", "builtin:homebrew", "Homebrew package manager (macOS)"}, {"git", "tool", "builtin:git", "Git version control system"}}
+	catalog := make([]Definition, 0, len(core.BuiltinPlugins))
+	for _, entry := range core.BuiltinPlugins {
+		catalog = append(catalog, Definition{entry.ID, entry.Category, entry.Module, entry.Description})
+	}
+	return catalog
 }
+
 func Builtin(name string) (core.Plugin, bool) {
 	switch name {
 	case "node":

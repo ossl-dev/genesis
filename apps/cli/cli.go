@@ -380,7 +380,7 @@ func login(opts cliOptions, out io.Writer) error {
 		fmt.Fprintf(out, "Token saved for %s\nToken saved to %s\n", opts.url, path)
 		return nil
 	}
-	data, err := os.ReadFile(path)
+	data, err := readMetadata(path)
 	var saved tokenMetadata
 	if err == nil && json.Unmarshal(data, &saved) == nil && saved.Token != "" && saved.URL != "" {
 		fmt.Fprintf(out, "A token is saved for %s\nSaved: %s\nReplace: genesis login --token <new-token>\n", saved.URL, saved.SavedAt)
@@ -424,7 +424,7 @@ func list(cwd string, opts cliOptions, out, errOut io.Writer) error {
 			if err != nil || info.Size() > 8<<20 {
 				continue
 			}
-			data, err := os.ReadFile(path)
+			data, err := readMetadata(path)
 			if err != nil {
 				continue
 			}
@@ -456,4 +456,31 @@ func list(cwd string, opts cliOptions, out, errOut io.Writer) error {
 		fmt.Fprintf(out, "%-20s %s\n", entry.ID, entry.Name)
 	}
 	return nil
+}
+
+func readMetadata(path string) ([]byte, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	info, err := file.Stat()
+	if err != nil {
+		return nil, err
+	}
+	if !info.Mode().IsRegular() {
+		return nil, errors.New("metadata must be a regular file")
+	}
+	const limit = 8 << 20
+	if info.Size() > limit {
+		return nil, errors.New("metadata exceeds 8 MiB")
+	}
+	data, err := io.ReadAll(io.LimitReader(file, limit+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(data) > limit {
+		return nil, errors.New("metadata exceeds 8 MiB")
+	}
+	return data, nil
 }

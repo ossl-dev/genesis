@@ -202,3 +202,22 @@ func TestDebugRespectsJSONOutput(t *testing.T) {
 		t.Fatalf("%q %q %v", out, errs, err)
 	}
 }
+
+func TestMetadataLimits(t *testing.T) {
+	cwd := t.TempDir()
+	if _, err := readMetadata(cwd); err == nil {
+		t.Fatal("metadata directory accepted")
+	}
+	path := filepath.Join(cwd, "large.json")
+	file, err := os.Create(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = file.Truncate((8 << 20) + 1); err != nil {
+		t.Fatal(err)
+	}
+	file.Close()
+	if _, err = readMetadata(path); err == nil {
+		t.Fatal("oversize metadata accepted")
+	}
+}

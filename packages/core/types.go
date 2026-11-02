@@ -66,13 +66,16 @@ type Node struct {
 }
 type Runner func(context.Context, string, []string, CommandOptions) (CommandResult, error)
 type CommandOptions struct {
-	Cwd     string
-	Env     map[string]string
-	Timeout time.Duration
+	Cwd         string
+	Env         map[string]string
+	Timeout     time.Duration
+	Stdin       io.Reader
+	OutputLimit int
 }
 type CommandResult struct {
-	Code           int
-	Stdout, Stderr string
+	Code                             int
+	Stdout, Stderr                   string
+	StdoutTruncated, StderrTruncated bool
 }
 type Runtime struct {
 	Context        context.Context

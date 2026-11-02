@@ -1,9 +1,11 @@
 package core
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -48,10 +50,8 @@ func TestConfigDiscoveryAndGoHook(t *testing.T) {
 		t.Fatal(config, err)
 	}
 	writeTestFile(t, filepath.Join(dir, "genesis.config.go"), "package main")
-	previous := GoConfigLoader
-	defer func() { GoConfigLoader = previous }()
-	GoConfigLoader = func(cwd, path string) (Config, error) { return Config{Env: map[string]string{"MODE": "go"}}, nil }
-	config, err = LoadConfig(dir, "")
+	loader := func(cwd, path string) (Config, error) { return Config{Env: map[string]string{"MODE": "go"}}, nil }
+	config, err = LoadConfigWithOptions(dir, "", ConfigLoadOptions{GoConfigLoader: loader})
 	if err != nil || config.Env["MODE"] != "go" {
 		t.Fatal(config, err)
 	}
@@ -82,4 +82,21 @@ func TestConfigTrimsPluginIdentityAndRejectsEmptyBranch(t *testing.T) {
 	if err := ValidateConfig(Config{Env: map[string]string{"VALUE": "nul\x00"}}); err == nil {
 		t.Fatal("NUL accepted")
 	}
+}
+func TestConfigConcurrentPerCallLoaders(t *testing.T) {
+	dir := t.TempDir()
+	writeTestFile(t, filepath.Join(dir, "genesis.config.go"), "package main")
+	var wg sync.WaitGroup
+	for i := 0; i < 20; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			value := fmt.Sprint(i)
+			config, err := LoadConfigWithOptions(dir, "", ConfigLoadOptions{GoConfigLoader: func(string, string) (Config, error) { return Config{Env: map[string]string{"VALUE": value}}, nil }})
+			if err != nil || config.Env["VALUE"] != value {
+				t.Error(config, err)
+			}
+		}(i)
+	}
+	wg.Wait()
 }

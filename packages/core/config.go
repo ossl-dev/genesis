@@ -23,12 +23,22 @@ var BuiltinPlugins = []PluginMetadata{
 	{"node", "tool", "builtin:node", "Node.js JavaScript runtime"}, {"bun", "tool", "builtin:bun", "Bun JavaScript runtime"}, {"deno", "tool", "builtin:deno", "Deno JavaScript runtime"}, {"pnpm", "tool", "builtin:pnpm", "pnpm package manager"}, {"yarn", "tool", "builtin:yarn", "Yarn Classic and modern package manager"}, {"python", "language", "builtin:python", "Python programming language"}, {"go", "language", "builtin:go", "Go programming language"}, {"java", "language", "builtin:java", "Java development kit"}, {"docker", "tool", "builtin:docker", "Docker container runtime"}, {"homebrew", "tool", "builtin:homebrew", "Homebrew package manager (macOS)"}, {"git", "tool", "builtin:git", "Git version control system"},
 }
 
-// GoConfigLoader is supplied by the CLI, which compiles executable Go configurations.
-var GoConfigLoader func(cwd, path string) (Config, error)
+type ConfigLoadOptions struct {
+	LookupEnv      func(string) (string, bool)
+	GoConfigLoader func(cwd, path string) (Config, error)
+}
+
 var envReference = regexp.MustCompile(`\$\{([A-Za-z_][A-Za-z0-9_]*)\}`)
 
 func LoadConfig(cwd, path string) (Config, error) { return LoadConfigWithEnv(cwd, path, os.LookupEnv) }
 func LoadConfigWithEnv(cwd, path string, lookup func(string) (string, bool)) (Config, error) {
+	return LoadConfigWithOptions(cwd, path, ConfigLoadOptions{LookupEnv: lookup})
+}
+func LoadConfigWithOptions(cwd, path string, options ConfigLoadOptions) (Config, error) {
+	lookup := options.LookupEnv
+	if lookup == nil {
+		lookup = os.LookupEnv
+	}
 	if path == "" {
 		for _, name := range []string{"genesis.config.go", "genesis.config.yaml", "genesis.config.yml", "genesis.config.json"} {
 			candidate := filepath.Join(cwd, name)
@@ -50,10 +60,10 @@ func LoadConfigWithEnv(cwd, path string, lookup func(string) (string, bool)) (Co
 		return config, fmt.Errorf("%s: config must use .go, .yaml, .yml or .json", path)
 	}
 	if filepath.Ext(path) == ".go" {
-		if GoConfigLoader == nil {
+		if options.GoConfigLoader == nil {
 			return config, fmt.Errorf("%s: executable Go configuration requires a GoConfigLoader", path)
 		}
-		config, err = GoConfigLoader(cwd, path)
+		config, err = options.GoConfigLoader(cwd, path)
 		if err == nil {
 			var value any
 			data, _ := json.Marshal(config)

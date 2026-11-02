@@ -3,7 +3,9 @@ package core
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
+	"sync"
 	"testing"
 )
 
@@ -81,5 +83,37 @@ func TestTaskCancellationAndValidation(t *testing.T) {
 	_ = registry.Register(Task{ID: "one", Execute: func(context.Context) (TaskResult, error) { t.Fatal("canceled task ran"); return TaskResult{}, nil }})
 	if _, err := registry.ExecuteAll(ctx); !errors.Is(err, context.Canceled) {
 		t.Fatal(err)
+	}
+}
+func TestTaskRegistryConcurrentRegistrationAndExecution(t *testing.T) {
+	registry := NewTaskRegistry()
+	started := make(chan struct{})
+	finish := make(chan struct{})
+	if err := registry.Register(Task{ID: "first", Execute: func(context.Context) (TaskResult, error) { close(started); <-finish; return TaskResult{OK: true}, nil }}); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan error, 1)
+	go func() { _, err := registry.ExecuteAll(context.Background()); done <- err }()
+	<-started
+	var wg sync.WaitGroup
+	for i := 0; i < 20; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			id := fmt.Sprint(i)
+			_ = registry.Register(Task{ID: id, Execute: func(context.Context) (TaskResult, error) { return TaskResult{OK: true}, nil }})
+			_ = registry.IDs()
+			_ = registry.Status("first")
+			_, _ = registry.Result("first")
+		}(i)
+	}
+	wg.Wait()
+	close(finish)
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	results, err := registry.ExecuteAll(context.Background())
+	if err != nil || len(results) != 21 {
+		t.Fatal(results, err)
 	}
 }

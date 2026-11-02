@@ -16,9 +16,9 @@ Supported platform names are `macos`, `linux`, and `windows`; other hosts retain
 
 `LinuxDistribution` contains `ID`, `Like`, and `Codename`. Parsing does not execute `os-release` values. Detection reads `/etc/os-release`, falling back to `/usr/lib/os-release` only when the first file is missing.
 
-`CommandOptions` has `Cwd`, `Env map[string]string`, and `Timeout time.Duration`. Commands use argument arrays and runtime PATH resolution. Nonzero exits and launch failures return nonzero `CommandResult.Code` plus `Stderr`; context cancellation/deadlines return an error as well. Always inspect `Code` after checking `error`.
+`CommandOptions` has `Cwd`, `Env map[string]string`, `Timeout time.Duration`, optional `Stdin io.Reader`, and `OutputLimit int` (zero selects 4 MiB per output stream). Commands use argument arrays and runtime PATH resolution. Nonzero exits and launch failures return nonzero `CommandResult.Code` plus `Stderr`; context cancellation/deadlines return an error as well. Always inspect `Code` after checking `error`.
 
-Stdout/stderr are drained with a 4 MiB retained prefix per stream to bound memory. Leading/trailing whitespace is trimmed. Windows batch shims run through `cmd.exe`; embedded quotes, newlines, or NUL in their arguments are rejected. Explicit shell scripts remain available through shell invocation.
+Stdout/stderr are drained with a retained prefix per stream to bound memory. `StdoutTruncated` and `StderrTruncated` report when output exceeded the configured limit; protocol consumers must reject truncated responses. Leading/trailing whitespace is trimmed. Windows batch shims run through `cmd.exe`; embedded quotes, newlines, or NUL in their arguments are rejected. Explicit shell scripts remain available through shell invocation.
 
 ```go
 package example

@@ -7,6 +7,7 @@ Import `github.com/ossl-dev/genesis/packages/core`. All operations return errors
 ```go
 func LoadConfig(cwd, path string) (Config, error)
 func LoadConfigWithEnv(cwd, path string, lookup func(string) (string, bool)) (Config, error)
+func LoadConfigWithOptions(cwd, path string, options ConfigLoadOptions) (Config, error)
 func NormalizeConfig(raw any) (Config, error)
 func ValidateConfig(config Config) error
 func CollectInstances(config Config) []Instance
@@ -16,7 +17,7 @@ An empty path discovers `genesis.config.go`, `.yaml`, `.yml`, then `.json`. Expl
 
 `Config` contains `Tools`, `SDKs`, `Languages`, `Repositories`, `Scripts`, and `Env`. `Instance` has `ID`, `Category`, `Module`, and `Options`. Options remain plugin-specific maps. Repository specs have `URL`, `Folder`, and optional `Branch`. Script specs have `Name`, `Command`, optional `Description`, and `When` (`before` or `after`, default `after`).
 
-Executable Go configurations require `GoConfigLoader`; the CLI installs `extension.LoadGoConfig`. Pure YAML/JSON consumers need no compiler. The [configuration guide](/guide/configuration) describes executable configs and their trust boundary.
+Executable Go configurations use the per-call `ConfigLoadOptions.GoConfigLoader` function; `LookupEnv` optionally supplies environment lookup. The CLI captures its cancellation context in this loader. Concurrent calls have independent loaders, without global mutation. Pure YAML/JSON consumers need no compiler. The [configuration guide](/guide/configuration) describes executable configs and their trust boundary.
 
 ## Plugins and execution
 

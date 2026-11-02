@@ -66,3 +66,17 @@ func TestLimitedOutputBuffer(t *testing.T) {
 		t.Fatal(buffer.String())
 	}
 }
+func TestCommandStdinAndOutputLimit(t *testing.T) {
+	command, args := "sh", []string{"-c", "cat; printf 123456 >&2"}
+	if runtime.GOOS == "windows" {
+		command = "cmd.exe"
+		args = []string{"/d", "/c", "more & echo 123456 1>&2"}
+	}
+	result, err := RunCommand(context.Background(), command, args, CommandOptions{Stdin: strings.NewReader("abcdef\n"), OutputLimit: 3})
+	if err != nil || result.Code != 0 || result.Stdout != "abc" || result.Stderr != "123" || !result.StdoutTruncated || !result.StderrTruncated {
+		t.Fatal(result, err)
+	}
+	if _, err := RunCommand(context.Background(), command, args, CommandOptions{OutputLimit: -1}); err == nil {
+		t.Fatal("negative output limit accepted")
+	}
+}

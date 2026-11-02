@@ -15,21 +15,30 @@ import (
 
 // limitedBuffer drains output while retaining only its prefix, bounding child-process memory.
 type limitedBuffer struct {
-	bytes.Buffer
-	limit int
+	buffer    bytes.Buffer
+	limit     int
+	truncated bool
 }
 
+func (b *limitedBuffer) Len() int       { return b.buffer.Len() }
+func (b *limitedBuffer) String() string { return b.buffer.String() }
 func (b *limitedBuffer) Write(p []byte) (int, error) {
 	n := len(p)
+	if n > b.limit-b.Len() {
+		b.truncated = true
+	}
 	if left := b.limit - b.Len(); left > 0 {
 		if len(p) > left {
 			p = p[:left]
 		}
-		_, _ = b.Buffer.Write(p)
+		_, _ = b.buffer.Write(p)
 	}
 	return n, nil
 }
 func RunCommand(ctx context.Context, command string, args []string, options CommandOptions) (CommandResult, error) {
+	if options.OutputLimit < 0 {
+		return CommandResult{Code: 1}, fmt.Errorf("output limit must be nonnegative")
+	}
 	if options.Timeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, options.Timeout)
@@ -48,6 +57,7 @@ func RunCommand(ctx context.Context, command string, args []string, options Comm
 	}
 	cmd := exec.CommandContext(ctx, command, args...)
 	cmd.Dir = options.Cwd
+	cmd.Stdin = options.Stdin
 	cmd.WaitDelay = 2 * time.Second
 	if options.Env != nil {
 		keys := make([]string, 0, len(options.Env))
@@ -62,12 +72,16 @@ func RunCommand(ctx context.Context, command string, args []string, options Comm
 	if err := configureProcess(cmd); err != nil {
 		return CommandResult{Code: 1, Stderr: err.Error()}, nil
 	}
-	stdout := &limitedBuffer{limit: 4 << 20}
-	stderr := &limitedBuffer{limit: 4 << 20}
+	limit := options.OutputLimit
+	if limit == 0 {
+		limit = 4 << 20
+	}
+	stdout := &limitedBuffer{limit: limit}
+	stderr := &limitedBuffer{limit: limit}
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
 	err := cmd.Run()
-	result := CommandResult{Stdout: strings.TrimSpace(stdout.String()), Stderr: strings.TrimSpace(stderr.String())}
+	result := CommandResult{Stdout: strings.TrimSpace(stdout.String()), Stderr: strings.TrimSpace(stderr.String()), StdoutTruncated: stdout.truncated, StderrTruncated: stderr.truncated}
 	if err == nil {
 		return result, nil
 	}

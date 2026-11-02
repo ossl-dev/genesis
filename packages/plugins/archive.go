@@ -76,13 +76,24 @@ func fetchBody(ctx context.Context, url string) (io.ReadCloser, error) {
 		return nil, err
 	}
 	req.Header.Set("User-Agent", "genesis")
-	resp, err := HTTPClient.Do(req)
+	client, token, err := githubHTTPClient(req)
 	if err != nil {
 		return nil, err
 	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, redactHTTPError(err, token)
+	}
 	if resp.StatusCode != http.StatusOK {
 		resp.Body.Close()
-		return nil, fmt.Errorf("download failed (%d): %s", resp.StatusCode, url)
+		if (resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusTooManyRequests) && resp.Request != nil && githubAPIOrigin(resp.Request.URL) && resp.Header.Get("X-RateLimit-Remaining") == "0" {
+			hint := "set GITHUB_TOKEN or GH_TOKEN for authenticated API requests"
+			if token != "" {
+				hint = "wait for the authenticated rate limit to reset"
+			}
+			return nil, fmt.Errorf("GitHub API rate limit exceeded (%d); %s", resp.StatusCode, hint)
+		}
+		return nil, redactHTTPError(fmt.Errorf("download failed (%d): %s", resp.StatusCode, url), token)
 	}
 	return resp.Body, nil
 }

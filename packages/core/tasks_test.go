@@ -1,10 +1,13 @@
 package core
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
 )
@@ -117,3 +120,62 @@ func TestTaskRegistryConcurrentRegistrationAndExecution(t *testing.T) {
 		t.Fatal(results, err)
 	}
 }
+
+func TestTaskRegistryLogging(t *testing.T) {
+	for _, debug := range []bool{false, true} {
+		t.Run(fmt.Sprint(debug), func(t *testing.T) {
+			value := ""
+			if debug {
+				value = "1"
+			}
+			t.Setenv("GENESIS_DEBUG", value)
+			var output bytes.Buffer
+			registry := NewTaskRegistry(log.New(&output, "", 0))
+			success := Task{ID: "success", Description: "Install prerequisite", Execute: func(context.Context) (TaskResult, error) { return TaskResult{OK: true, Details: "ready"}, nil }}
+			_ = registry.Register(success)
+			_ = registry.Register(success)
+			_ = registry.Register(Task{ID: "bad", Description: "Failed prerequisite", Execute: func(context.Context) (TaskResult, error) { return TaskResult{Error: "permission denied"}, nil }})
+			_ = registry.Register(Task{ID: "child", DependsOn: []string{"bad"}, Execute: func(context.Context) (TaskResult, error) { t.Fatal("failed dependency ran"); return TaskResult{}, nil }})
+			results, err := registry.ExecuteAll(context.Background())
+			if err != nil || len(results) != 3 {
+				t.Fatal(results, err)
+			}
+			text := output.String()
+			for _, expected := range []string{"Executing 3 system task(s)", "Task bad failed: permission denied", "Skipping task child due to failed dependencies", "System tasks completed: 1 succeeded, 2 failed"} {
+				if !strings.Contains(text, expected) {
+					t.Fatalf("missing %q in %q", expected, text)
+				}
+			}
+			for _, expected := range []string{"Registering task: success - Install prerequisite", "Task success already registered, skipping", "Executing task: success - Install prerequisite", "Task success completed successfully: ready"} {
+				if strings.Contains(text, expected) != debug {
+					t.Fatalf("debug=%v, unexpected log %q: %q", debug, expected, text)
+				}
+			}
+		})
+	}
+}
+func TestRuntimeTaskLoggerAndReentrantStatus(t *testing.T) {
+	var output bytes.Buffer
+	var registry *TaskRegistry
+	writer := taskLogWriter{write: func(p []byte) (int, error) {
+		if registry != nil {
+			_ = registry.Status("check")
+			_ = registry.IDs()
+		}
+		return output.Write(p)
+	}}
+	r := &Runtime{Logger: log.New(writer, "", 0)}
+	r.Ensure()
+	registry = r.Tasks
+	_ = registry.Register(Task{ID: "check", Execute: func(context.Context) (TaskResult, error) { return TaskResult{OK: true}, nil }})
+	if _, err := registry.ExecuteAll(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output.String(), "System tasks completed: 1 succeeded, 0 failed") {
+		t.Fatal("runtime logger missing", output.String())
+	}
+}
+
+type taskLogWriter struct{ write func([]byte) (int, error) }
+
+func (w taskLogWriter) Write(p []byte) (int, error) { return w.write(p) }

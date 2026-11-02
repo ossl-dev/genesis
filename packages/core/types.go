@@ -101,7 +101,7 @@ func (r *Runtime) Ensure() {
 		r.Logger = log.New(io.Discard, "", 0)
 	}
 	if r.Tasks == nil {
-		r.Tasks = NewTaskRegistry()
+		r.Tasks = NewTaskRegistry(r.Logger)
 	}
 	if r.Runner == nil {
 		r.Runner = RunCommand

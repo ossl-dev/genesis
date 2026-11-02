@@ -30,6 +30,7 @@ func (e *InstallationRecoveryError) Unwrap() error { return e.Err }
 
 var checksumPattern = regexp.MustCompile(`(?i)^[a-f0-9]{64}$`)
 
+const maxReleaseMetadataBytes int64 = 32 << 20
 const maxArchiveBytes int64 = 2 << 30
 const maxExtractedBytes int64 = 8 << 30
 const maxArchiveEntries = 100000
@@ -56,8 +57,8 @@ func FetchText(ctx context.Context, url string) (string, error) {
 		return "", err
 	}
 	defer body.Close()
-	data, err := io.ReadAll(io.LimitReader(body, 32<<20+1))
-	if len(data) > 32<<20 {
+	data, err := io.ReadAll(io.LimitReader(body, maxReleaseMetadataBytes+1))
+	if int64(len(data)) > maxReleaseMetadataBytes {
 		return "", errors.New("release metadata exceeds 32 MiB")
 	}
 	return string(data), err

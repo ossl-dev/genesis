@@ -2,11 +2,15 @@ package plugins
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net/url"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 )
 
 func releaseArchitecture(arch string) (string, error) {
@@ -52,21 +56,86 @@ func GoRelease(ctx context.Context, version, platform, architecture string) (Arc
 		format = "zip"
 	}
 	filename := fmt.Sprintf("go%s.%s-%s.%s", version, system, arch, format)
-	var releases []struct {
-		Files []struct{ Filename, SHA256 string }
-	}
-	if err := FetchJSON(ctx, "https://go.dev/dl/?mode=json&include=all", &releases); err != nil {
+	checksum, err := goArchiveChecksum(ctx, filename)
+	if err != nil {
 		return ArchiveRelease{}, err
 	}
-	for _, r := range releases {
-		for _, f := range r.Files {
-			if f.Filename == filename && checksumPattern.MatchString(f.SHA256) {
-				return ArchiveRelease{version, "https://go.dev/dl/" + filename, f.SHA256, format}, nil
-			}
-		}
+	if checksum != "" {
+		return ArchiveRelease{version, "https://go.dev/dl/" + filename, checksum, format}, nil
 	}
 	return ArchiveRelease{}, fmt.Errorf("Go %s has no archive for %s/%s", version, platform, arch)
 }
+func goArchiveChecksum(parent context.Context, filename string) (string, error) {
+	ctx, cancel := context.WithTimeout(parent, 30*time.Second)
+	defer cancel()
+	body, err := fetchBody(ctx, "https://go.dev/dl/?mode=json&include=all")
+	if err != nil {
+		return "", err
+	}
+	defer body.Close()
+	limited := &io.LimitedReader{R: contextReader{ctx, body}, N: maxReleaseMetadataBytes + 1}
+	checksum, err := readGoArchiveChecksum(limited, filename)
+	if limited.N == 0 {
+		return "", errors.New("release metadata exceeds 32 MiB")
+	}
+	return checksum, err
+}
+
+func readGoArchiveChecksum(reader io.Reader, filename string) (string, error) {
+	decoder := json.NewDecoder(reader)
+	token, err := decoder.Token()
+	if err != nil {
+		return "", err
+	}
+	if token == nil {
+		var extra any
+		if err = decoder.Decode(&extra); err != io.EOF {
+			if err == nil {
+				err = errors.New("unexpected data after Go release manifest")
+			}
+			return "", err
+		}
+		return "", nil
+	}
+	if token != json.Delim('[') {
+		return "", errors.New("Go release manifest must be an array")
+	}
+	var release struct {
+		Files []struct {
+			Filename string `json:"filename"`
+			SHA256   string `json:"sha256"`
+		} `json:"files"`
+	}
+	var checksum string
+	for decoder.More() {
+		// Reuse one release while clearing absent fields; malformed later entries still fail.
+		clear(release.Files[:cap(release.Files)])
+		release.Files = release.Files[:0]
+		if err = decoder.Decode(&release); err != nil {
+			return "", err
+		}
+		if checksum == "" {
+			for _, file := range release.Files {
+				if file.Filename == filename && checksumPattern.MatchString(file.SHA256) {
+					checksum = file.SHA256
+					break
+				}
+			}
+		}
+	}
+	if _, err = decoder.Token(); err != nil {
+		return "", err
+	}
+	var extra any
+	if err = decoder.Decode(&extra); err != io.EOF {
+		if err == nil {
+			err = errors.New("unexpected data after Go release manifest")
+		}
+		return "", err
+	}
+	return checksum, nil
+}
+
 func NormalizeJavaVersion(version string) string {
 	return strings.Replace(strings.TrimPrefix(version, "1."), "_", ".", 1)
 }

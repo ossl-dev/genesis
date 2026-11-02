@@ -147,29 +147,28 @@ func (e *ParallelExecutionEngine) ExecuteParallel(plan *ParallelExecutionPlan, r
 		if phase.Parallelizable && !hasResourceConflicts(phase.Plugins, r.Cwd) {
 			workers = min(e.maxConcurrency, len(phase.Plugins))
 		}
-		jobs := make(chan int)
-		var wg sync.WaitGroup
-		for i := 0; i < workers; i++ {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				for index := range jobs {
-					n := phase.Plugins[index]
-					failed := []string{}
-					for _, dep := range n.Plugin.DependsOn {
-						if !outcomes[dep].Success {
-							failed = append(failed, dep)
-						}
+		if workers == 1 {
+			for index, n := range phase.Plugins {
+				phaseResults[index] = e.executeWithDependencies(n, r, dependents, outcomes)
+			}
+		} else {
+			jobs := make(chan int)
+			var wg sync.WaitGroup
+			for i := 0; i < workers; i++ {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					for index := range jobs {
+						phaseResults[index] = e.executeWithDependencies(phase.Plugins[index], r, dependents, outcomes)
 					}
-					phaseResults[index] = e.executeNode(n, r, dependents[n.Instance.ID], failed)
-				}
-			}()
+				}()
+			}
+			for index := range phase.Plugins {
+				jobs <- index
+			}
+			close(jobs)
+			wg.Wait()
 		}
-		for i := range phase.Plugins {
-			jobs <- i
-		}
-		close(jobs)
-		wg.Wait()
 		for _, result := range phaseResults {
 			outcomes[result.PluginID] = result
 		}
@@ -187,6 +186,16 @@ func (e *ParallelExecutionEngine) ExecuteParallel(plan *ParallelExecutionPlan, r
 	e.mu.Unlock()
 	return results, r.Context.Err()
 }
+func (e *ParallelExecutionEngine) executeWithDependencies(n Node, r *Runtime, dependents map[string][]string, outcomes map[string]ExecutionResult) ExecutionResult {
+	failed := []string{}
+	for _, dependency := range n.Plugin.DependsOn {
+		if !outcomes[dependency].Success {
+			failed = append(failed, dependency)
+		}
+	}
+	return e.executeNode(n, r, dependents[n.Instance.ID], failed)
+}
+
 func (e *ParallelExecutionEngine) executeNode(n Node, r *Runtime, dependents, failed []string) (result ExecutionResult) {
 	start := time.Now()
 	heapBefore, cpuBefore := processUsage()

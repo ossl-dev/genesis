@@ -23,7 +23,7 @@ func main() {
 }
 ```
 
-Use loaded `[]core.Node` instead of `nil` for real work. Planning rejects graph errors before execution. Worker counts must be positive and are capped at `GOMAXPROCS`. A dependency phase finishes before its dependents begin. Results retain plan order, regardless of completion order.
+Use loaded `[]core.Node` instead of `nil` for real work. Planning rejects graph errors before execution. Worker counts must be positive and are capped at `GOMAXPROCS`. A dependency phase finishes before its dependents begin. Results retain plan order, regardless of completion order. Single-worker phases execute directly; worker goroutines and job channels are created only when a phase can run concurrently.
 
 Prepare hooks, task registration, and shared system tasks run sequentially before workers start. Parallel plugin errors and panics become failed results; dependent plugins are skipped, while independent work can finish. Runtime environment updates use synchronized `Environment` methods.
 
@@ -59,3 +59,5 @@ Local medians from five benchmark runs on an Apple M2 Pro, darwin/arm64, Go 1.27
 These benchmarks use dependency chains with no-op plugins and an empty runtime environment. They measure core overhead, excluding installers, network, and child processes. Allocation profiling attributed 91% of baseline apply allocations to graph construction. Actual provisioning time depends on the requested tools and host.
 
 Run `go test ./packages/core -run '^$' -bench 'Benchmark(BuildPluginGraph|ApplyEnvironment)$' -benchmem -count=5` to compare on another host.
+
+A separate 100-node dependency-chain benchmark of parallel execution (four-worker limit, three-run medians on the same host) improved from 272,943 to 116,048 ns/op, from 237,656 to 215,246 B/op, and from 1,538 to 1,238 allocations/op after removing worker/channel setup for serialized phases. This fixture includes metrics collection, reuses its plan, and clears history each iteration. Run `go test ./packages/core -run '^$' -bench '^BenchmarkParallelDependencyChain$' -benchmem -count=3` to reproduce.

@@ -47,3 +47,25 @@ func BenchmarkApplyEnvironment(b *testing.B) {
 		})
 	}
 }
+
+func BenchmarkParallelDependencyChain(b *testing.B) {
+	nodes := benchmarkNodes(100)
+	engine, err := NewParallelExecutionEngine(4)
+	if err != nil {
+		b.Fatal(err)
+	}
+	plan, err := engine.CreateExecutionPlan(nodes)
+	if err != nil {
+		b.Fatal(err)
+	}
+	r := &Runtime{Env: NewEnvironment(map[string]string{})}
+	r.Ensure()
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if _, err := engine.ExecuteParallel(plan, r); err != nil {
+			b.Fatal(err)
+		}
+		engine.ClearHistory()
+	}
+}

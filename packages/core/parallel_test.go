@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"errors"
+	"reflect"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -181,5 +182,33 @@ func TestLastParallelPhaseCancellationPreservesContextError(t *testing.T) {
 	results, err := engine.ExecuteParallel(plan, &Runtime{Context: ctx})
 	if !errors.Is(err, context.Canceled) || len(results) != 1 {
 		t.Fatal(results, err)
+	}
+}
+func TestSerializedResourcePhaseKeepsLifecycleAndPanicIsolation(t *testing.T) {
+	events := []string{}
+	first, second := testNode("first"), testNode("second")
+	first.Instance.Options = Options{"install_dir": "/shared"}
+	second.Instance.Options = Options{"install_dir": "/shared/child"}
+	first.Plugin.PreApply = func(*Runtime, Instance) error { events = append(events, "pre:first"); return nil }
+	first.Plugin.Apply = func(*Runtime, Instance) (ApplyResult, error) { events = append(events, "apply:first"); panic("failed") }
+	first.Plugin.PostApply = func(*Runtime, Instance) error { t.Fatal("post hook after panic"); return nil }
+	second.Plugin.PreApply = func(*Runtime, Instance) error { events = append(events, "pre:second"); return nil }
+	second.Plugin.Apply = func(*Runtime, Instance) (ApplyResult, error) {
+		events = append(events, "apply:second")
+		return ApplyResult{OK: true, DidChange: true}, nil
+	}
+	second.Plugin.PostApply = func(*Runtime, Instance) error { events = append(events, "post:second"); return nil }
+	engine, _ := NewParallelExecutionEngine(4)
+	plan, err := engine.CreateExecutionPlan([]Node{first, second})
+	if err != nil || plan.Phases[0].Parallelizable {
+		t.Fatal(plan, err)
+	}
+	results, err := engine.ExecuteParallel(plan, &Runtime{})
+	if err != nil || len(results) != 2 || results[0].Success || !results[1].Success || !results[1].DidChange {
+		t.Fatal(results, err)
+	}
+	expected := []string{"pre:first", "apply:first", "pre:second", "apply:second", "post:second"}
+	if !reflect.DeepEqual(events, expected) {
+		t.Fatal(events)
 	}
 }

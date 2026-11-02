@@ -1,4 +1,5 @@
-// Check tracked source for formatting drift and retired toolchain artifacts.
+// Check Genesis source for formatting drift and retired runtime toolchain artifacts.
+// The independent VitePress documentation project keeps its own JavaScript tooling.
 package main
 
 import (
@@ -25,6 +26,9 @@ func check() error {
 	for _, item := range bytes.Split(data, []byte{0}) {
 		name := string(item)
 		if name == "" {
+			continue
+		}
+		if strings.HasPrefix(name, "apps/docs/") {
 			continue
 		}
 		base := filepath.Base(name)

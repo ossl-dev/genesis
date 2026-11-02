@@ -7,9 +7,10 @@ and use the existing conventional commit style.
 go test ./...
 go test -race ./...
 go vet ./...
-go run ./apps/docs -output dist/docs
+cd apps/docs && bun run build
 ```
 
+Documentation stays in VitePress; install its dependencies inside `apps/docs`.
 Format Go with `gofmt`. Prefer argument arrays, context cancellation, streamed
 I/O, bounded goroutines, and explicit ownership of files/processes. Validate
 plugin options before changes. Preserve shared-task deduplication and staged

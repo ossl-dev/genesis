@@ -3,3 +3,7 @@
 bin
 dist
 .DS_Store
+
+apps/docs/node_modules
+apps/docs/.vitepress/dist
+apps/docs/.vitepress/cache

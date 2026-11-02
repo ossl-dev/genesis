@@ -1,8 +1,7 @@
 {
-  "buildCommand": "go run ./apps/docs -output dist/docs",
-  "outputDirectory": "dist/docs",
-  "installCommand": "",
+  "buildCommand": "cd apps/docs && bun run build",
+  "outputDirectory": "apps/docs/.vitepress/dist",
+  "installCommand": "cd apps/docs && bun install --frozen-lockfile",
   "framework": null,
-  "cleanUrls": true,
-  "ignoreCommand": "git diff --quiet HEAD^ HEAD ./"
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD ./apps/docs ./vercel.json"
 }

@@ -3,7 +3,7 @@
 One Go module keeps applications in `apps` and reusable code in `packages`.
 
 - `apps/cli`: command parsing, interactive scaffolding, output, local auth/listing.
-- `apps/docs`: embedded Markdown, HTML builds, server search and navigation.
+- `apps/docs`: independent VitePress documentation, with its own manifest and lockfile.
 - `packages/core`: configuration, plugin/task graphs, subprocesses, execution,
   repository/scripts, metadata cache APIs.
 - `packages/plugins`: eleven builtins, strict options, release resolution, verified

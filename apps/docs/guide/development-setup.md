@@ -10,15 +10,17 @@ go vet ./...
 go build -o bin/genesis ./apps/cli
 ```
 
-One Go module retains the apps/packages structure. No generated package output
+One Go module retains the apps/packages structure for Genesis. Documentation
+remains an independent VitePress project: run `cd apps/docs && bun install
+--frozen-lockfile` before its dev/build commands. No generated package output
 is needed before tests. Source uses standard formatting (`gofmt`); `make check`
 runs vet, tests, and formatting checks. Archive tests extract real fixtures;
 command mocks cover installer permutations, while Git/scripts and cancellation
 also have real subprocess integration tests.
 
 ```sh
-go run ./apps/docs -serve localhost:8080
-go run ./apps/docs -output dist/docs
+cd apps/docs && bun run dev
+cd apps/docs && bun run build
 go run ./scripts/release
 ```
 

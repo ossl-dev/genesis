@@ -16,10 +16,10 @@ check: vet test
 	go run ./scripts/check
 
 docs:
-	go run ./apps/docs -output dist/docs
+	cd apps/docs && bun run build
 
 docs-serve:
-	go run ./apps/docs -serve localhost:8080
+	cd apps/docs && bun run dev
 
 release:
 	go run ./scripts/release

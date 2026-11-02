@@ -72,15 +72,16 @@ Installers modify the host. System package operations have no general rollback.
 go test ./...
 go test -race ./...
 go vet ./...
-go run ./apps/docs -output dist/docs
-go run ./apps/docs -serve localhost:8080
+cd apps/docs && bun run build
+cd apps/docs && bun run dev
 go run ./scripts/release
 ```
 
 Source layout: `apps/cli`, `apps/docs`, `packages/core`, `packages/plugins`,
 `packages/extension`, and `scripts`. One Go module replaces workspace build
-orchestration. Documentation builds and serves through Go; server search works
-without browser scripting. Static exports support navigation and browser find.
+orchestration. Documentation stays independent in `apps/docs`, using VitePress. Run
+`cd apps/docs && bun install --frozen-lockfile` once, then `bun run dev` or
+`bun run build` from that directory. Its JS dependencies belong only to docs.
 
 Real downloads and installer reapply checks: `go run ./scripts/smoke installers`.
 They use temporary prefixes and need network access plus source-build tools for

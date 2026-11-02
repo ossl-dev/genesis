@@ -141,3 +141,37 @@ func TestRepositoryCloneError(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+func TestGenesisHomeRejectsMissingAndRelativeHome(t *testing.T) {
+	key := "HOME"
+	if runtime.GOOS == "windows" {
+		key = "USERPROFILE"
+	}
+	for _, value := range []string{"", "relative/home"} {
+		t.Run(value, func(t *testing.T) {
+			t.Setenv(key, value)
+			if home, err := ResolveGenesisHome(); err == nil || home != "" {
+				t.Fatal(home, err)
+			}
+			if home := GetGenesisHome(); home != "" {
+				t.Fatal("unsafe home fallback", home)
+			}
+			if home, err := EnsureGenesisHome(); err == nil || home != "" {
+				t.Fatal(home, err)
+			}
+			manager, _ := NewEnvironmentCacheManager(CacheConfig{})
+			entry, err := manager.CacheEnvironment("test", Config{}, "", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := manager.CreateSnapshot(entry.ID, "snapshot", ""); err == nil {
+				t.Fatal("snapshot accepted unresolved home")
+			}
+		})
+	}
+	home := t.TempDir()
+	t.Setenv(key, home)
+	resolved, err := ResolveGenesisHome()
+	if err != nil || resolved != filepath.Join(home, ".genesis") {
+		t.Fatal(resolved, err)
+	}
+}

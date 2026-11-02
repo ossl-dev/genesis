@@ -44,6 +44,7 @@ func CheckGit(ctx context.Context) error {
 
 ```go
 func EnsureDir(path string) error
+func ResolveGenesisHome() (string, error)
 func GetGenesisHome() string
 func EnsureGenesisHome() (string, error)
 func JoinPath(segments ...string) string
@@ -51,6 +52,6 @@ func WritePrivateFile(path string, data []byte) error
 func NewEnvironment(values map[string]string) *Environment
 ```
 
-Genesis home is `~/.genesis`. `WritePrivateFile` writes through a temporary file in the destination directory with mode 0600 and renames it into place. `NewEnvironment(nil)` copies the host environment; passing an empty map creates an empty environment. `Environment.Get`, `Set`, `Snapshot`, and `PrependPath` synchronize concurrent access; returned maps are copies. Windows environment keys are case-insensitive and normalized to avoid conflicting PATH entries.
+Genesis home is `~/.genesis`. `ResolveGenesisHome` rejects missing or relative native home directories; use it before writes. `EnsureGenesisHome` propagates resolution errors. The convenience `GetGenesisHome` returns an empty string on failure. `WritePrivateFile` writes through a temporary file in the destination directory with mode 0600 and renames it into place. `NewEnvironment(nil)` copies the host environment; passing an empty map creates an empty environment. `Environment.Get`, `Lookup`, `Set`, `Snapshot`, and `PrependPath` synchronize concurrent access; returned maps are copies. `Lookup` also reports whether a key exists, distinguishing absent keys from explicitly empty values. Windows environment keys are case-insensitive and normalized to avoid conflicting PATH entries.
 
 `Runtime.Logger` is a standard `*log.Logger`; absent loggers discard output. CLI logging goes to stderr, preserving JSON stdout. Library calls do not control process exit status.

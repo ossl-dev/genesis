@@ -165,11 +165,13 @@ func NewEnvironment(values map[string]string) *Environment {
 	}
 	return e
 }
-func (e *Environment) Get(key string) string {
+func (e *Environment) Lookup(key string) (string, bool) {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
-	return e.values[environmentKey(key)]
+	value, exists := e.values[environmentKey(key)]
+	return value, exists
 }
+func (e *Environment) Get(key string) string { value, _ := e.Lookup(key); return value }
 func (e *Environment) Set(key, value string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()

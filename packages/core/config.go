@@ -59,6 +59,11 @@ func LoadConfigWithOptions(cwd, path string, options ConfigLoadOptions) (Config,
 	if extension != ".go" && extension != ".yaml" && extension != ".yml" && extension != ".json" {
 		return config, fmt.Errorf("%s: config must use .go, .yaml, .yml or .json", path)
 	}
+	if info, statErr := os.Stat(path); statErr != nil {
+		return config, fmt.Errorf("%s: %w", path, statErr)
+	} else if !info.Mode().IsRegular() {
+		return config, fmt.Errorf("%s: config must be a regular file", path)
+	}
 	if filepath.Ext(path) == ".go" {
 		if options.GoConfigLoader == nil {
 			return config, fmt.Errorf("%s: executable Go configuration requires a GoConfigLoader", path)
@@ -83,7 +88,7 @@ func LoadConfigWithOptions(cwd, path string, options ConfigLoadOptions) (Config,
 		}
 	} else {
 		var file *os.File
-		file, err = os.Open(path)
+		file, err = openRegularConfig(path)
 		if err == nil {
 			defer file.Close()
 			if info, statErr := file.Stat(); statErr != nil {
@@ -346,4 +351,21 @@ func validateRawConfig(m map[string]any) error {
 		}
 	}
 	return nil
+}
+
+func openRegularConfig(path string) (*os.File, error) {
+	file, err := os.OpenFile(path, configOpenFlags, 0)
+	if err != nil {
+		return nil, err
+	}
+	info, err := file.Stat()
+	if err != nil {
+		_ = file.Close()
+		return nil, err
+	}
+	if !info.Mode().IsRegular() {
+		_ = file.Close()
+		return nil, fmt.Errorf("config must be a regular file")
+	}
+	return file, nil
 }

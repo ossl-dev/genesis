@@ -212,8 +212,15 @@ func (m *EnvironmentCacheManager) CreateSnapshot(environmentID, name, descriptio
 	if err != nil {
 		return EnvironmentSnapshot{}, err
 	}
-	cwd, _ := os.Getwd()
-	snapshot := EnvironmentSnapshot{ID: id, EnvironmentID: environmentID, Name: name, Description: description, Config: entry.Config, CreatedAt: time.Now(), Restorable: false, State: SnapshotState{Filesystem: FilesystemState{Files: []FileState{}, Directories: []string{GetGenesisHome(), cwd}, Permissions: map[string]string{}}, Environment: NewEnvironment(nil).Snapshot(), Processes: []ProcessState{}, Network: NetworkState{Ports: []PortState{}, Connections: []ConnectionState{}}}}
+	home, err := ResolveGenesisHome()
+	if err != nil {
+		return EnvironmentSnapshot{}, err
+	}
+	cwd, err := os.Getwd()
+	if err != nil {
+		return EnvironmentSnapshot{}, err
+	}
+	snapshot := EnvironmentSnapshot{ID: id, EnvironmentID: environmentID, Name: name, Description: description, Config: entry.Config, CreatedAt: time.Now(), Restorable: false, State: SnapshotState{Filesystem: FilesystemState{Files: []FileState{}, Directories: []string{home, cwd}, Permissions: map[string]string{}}, Environment: NewEnvironment(nil).Snapshot(), Processes: []ProcessState{}, Network: NetworkState{Ports: []PortState{}, Connections: []ConnectionState{}}}}
 	stored, err := cloneSnapshot(snapshot)
 	if err != nil {
 		return snapshot, err

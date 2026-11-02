@@ -13,7 +13,7 @@ func ValidateConfig(config Config) error
 func CollectInstances(config Config) []Instance
 ```
 
-An empty path discovers `genesis.config.go`, `.yaml`, `.yml`, then `.json`. Explicit paths resolve against `cwd`. YAML/JSON accept built-in `type` shorthand and repository `path` as an alias for `folder`. Parsing rejects malformed sections, duplicate IDs, missing fields, multiple documents, and files larger than 8 MiB. `${NAME}` references expand from the supplied lookup or host environment; missing variables report their field path. Shell expressions are never evaluated.
+An empty path discovers `genesis.config.go`, `.yaml`, `.yml`, then `.json`. Explicit paths resolve against `cwd`. YAML/JSON accept built-in `type` shorthand and repository `path` as an alias for `folder`. Parsing rejects malformed sections, duplicate IDs, missing fields, multiple documents, and files larger than 8 MiB. Config sources must be regular files; symlinks to regular files are allowed. Unix descriptor opens are nonblocking and recheck the file type, preventing named-pipe stalls. `${NAME}` references expand from the supplied lookup or host environment; missing variables report their field path. Shell expressions are never evaluated.
 
 `Config` contains `Tools`, `SDKs`, `Languages`, `Repositories`, `Scripts`, and `Env`. `Instance` has `ID`, `Category`, `Module`, and `Options`. Options remain plugin-specific maps. Repository specs have `URL`, `Folder`, and optional `Branch`. Script specs have `Name`, `Command`, optional `Description`, and `When` (`before` or `after`, default `after`).
 

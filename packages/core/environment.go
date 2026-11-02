@@ -203,9 +203,22 @@ func applyEnvironment(config Config, nodes []Node, r *Runtime, workers int) ([]A
 	}
 	return results, nil
 }
-func GetGenesisHome() string { home, _ := os.UserHomeDir(); return filepath.Join(home, ".genesis") }
+func ResolveGenesisHome() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("resolve Genesis home: %w", err)
+	}
+	if home == "" || !filepath.IsAbs(home) {
+		return "", fmt.Errorf("resolve Genesis home: home directory must be absolute and nonempty")
+	}
+	return filepath.Join(home, ".genesis"), nil
+}
+func GetGenesisHome() string { home, _ := ResolveGenesisHome(); return home }
 func EnsureGenesisHome() (string, error) {
-	home := GetGenesisHome()
+	home, err := ResolveGenesisHome()
+	if err != nil {
+		return "", err
+	}
 	return home, os.MkdirAll(home, 0700)
 }
 func EnsureDir(path string) error        { return os.MkdirAll(path, 0755) }

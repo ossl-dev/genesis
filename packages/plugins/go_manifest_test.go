@@ -122,3 +122,25 @@ func TestGoManifestHTTPFailureClosesBody(t *testing.T) {
 		t.Fatal("HTTP error body leaked")
 	}
 }
+
+type unexpectedTrailerReader struct {
+	prefix string
+	reads  int
+}
+
+func (r *unexpectedTrailerReader) Read(p []byte) (int, error) {
+	r.reads++
+	if r.reads > 1 {
+		return 0, io.ErrUnexpectedEOF
+	}
+	return copy(p, r.prefix), nil
+}
+func TestGoManifestRejectsTrailerWithoutMaterializingIt(t *testing.T) {
+	reader := &unexpectedTrailerReader{prefix: `[{"files":[{"filename":"target","sha256":"` + testHash + `"}]}]{`}
+	if _, err := readGoArchiveChecksum(reader, "target"); err == nil || !strings.Contains(err.Error(), "unexpected data") {
+		t.Fatal(err)
+	}
+	if reader.reads != 1 {
+		t.Fatal("decoder attempted to materialize a rejected trailing object")
+	}
+}

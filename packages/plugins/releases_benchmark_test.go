@@ -74,8 +74,7 @@ func benchmarkDecodedChecksum(parent context.Context, filename string) (string, 
 	if err = decoder.Decode(&releases); err != nil {
 		return "", err
 	}
-	var extra any
-	if err = decoder.Decode(&extra); err != io.EOF {
+	if _, err = decoder.Token(); err != io.EOF {
 		if err == nil {
 			err = errors.New("unexpected trailing JSON")
 		}

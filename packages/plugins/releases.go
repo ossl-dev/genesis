@@ -88,8 +88,7 @@ func readGoArchiveChecksum(reader io.Reader, filename string) (string, error) {
 		return "", err
 	}
 	if token == nil {
-		var extra any
-		if err = decoder.Decode(&extra); err != io.EOF {
+		if _, err = decoder.Token(); err != io.EOF {
 			if err == nil {
 				err = errors.New("unexpected data after Go release manifest")
 			}
@@ -126,8 +125,7 @@ func readGoArchiveChecksum(reader io.Reader, filename string) (string, error) {
 	if _, err = decoder.Token(); err != nil {
 		return "", err
 	}
-	var extra any
-	if err = decoder.Decode(&extra); err != io.EOF {
+	if _, err = decoder.Token(); err != io.EOF {
 		if err == nil {
 			err = errors.New("unexpected data after Go release manifest")
 		}

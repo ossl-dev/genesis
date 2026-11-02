@@ -131,3 +131,42 @@ func TestEnvironmentConcurrentAccess(t *testing.T) {
 		t.Fatal("value lost")
 	}
 }
+func TestParallelResultsDoNotAliasStoredMetrics(t *testing.T) {
+	first, last := testNode("first"), testNode("last", "first")
+	engine, _ := NewParallelExecutionEngine(2)
+	plan, _ := engine.CreateExecutionPlan([]Node{first, last})
+	results, err := engine.ExecuteParallel(plan, &Runtime{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	results[0].Metrics.Dependents[0] = "changed"
+	results[1].Metrics.Dependencies[0] = "changed"
+	for _, m := range engine.GetMetrics() {
+		for _, id := range append(m.Dependencies, m.Dependents...) {
+			if id == "changed" {
+				t.Fatal("returned result aliases stored metrics")
+			}
+		}
+	}
+	history := engine.GetExecutionHistory()
+	if history[0].Metrics.Dependents[0] != "last" || history[1].Metrics.Dependencies[0] != "first" {
+		t.Fatal("result aliases stored history")
+	}
+	history[0].Metrics.Dependents[0] = "mutated"
+	if engine.GetExecutionHistory()[0].Metrics.Dependents[0] != "last" {
+		t.Fatal("history getter aliases internal values")
+	}
+	engine.ClearHistory()
+	engine.ResetMetrics()
+	if len(engine.GetExecutionHistory()) != 0 || len(engine.GetMetrics()) != 0 {
+		t.Fatal("reset failed")
+	}
+}
+func TestEnvironmentZeroValue(t *testing.T) {
+	var e Environment
+	e.Set("value", "yes")
+	e.PrependPath("path")
+	if e.Get("value") != "yes" {
+		t.Fatal(e.Snapshot())
+	}
+}

@@ -179,7 +179,11 @@ func (e *ParallelExecutionEngine) ExecuteParallel(plan *ParallelExecutionPlan, r
 	plan.elapsed = time.Since(start)
 	plan.mu.Unlock()
 	e.mu.Lock()
-	e.history = append(e.history, results...)
+	for _, result := range results {
+		copy := result
+		copy.Metrics = cloneMetrics(result.Metrics)
+		e.history = append(e.history, copy)
+	}
 	e.mu.Unlock()
 	return results, nil
 }
@@ -204,7 +208,7 @@ func (e *ParallelExecutionEngine) executeNode(n Node, r *Runtime, dependents, fa
 		}
 		result.Metrics = PluginMetrics{MemoryUsage: memory, CPUUsage: cpu, ID: n.Instance.ID, ExecutionTime: result.Duration, Dependencies: append([]string(nil), n.Plugin.DependsOn...), Dependents: append([]string(nil), dependents...), CriticalPath: len(dependents) > 0}
 		e.mu.Lock()
-		e.metrics[n.Instance.ID] = result.Metrics
+		e.metrics[n.Instance.ID] = cloneMetrics(result.Metrics)
 		e.mu.Unlock()
 	}()
 	if len(failed) > 0 {

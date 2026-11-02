@@ -173,6 +173,9 @@ func (e *Environment) Get(key string) string {
 func (e *Environment) Set(key, value string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+	if e.values == nil {
+		e.values = map[string]string{}
+	}
 	e.values[environmentKey(key)] = value
 }
 func (e *Environment) Snapshot() map[string]string {
@@ -187,6 +190,9 @@ func (e *Environment) Snapshot() map[string]string {
 func (e *Environment) PrependPath(path string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+	if e.values == nil {
+		e.values = map[string]string{}
+	}
 	key := "PATH"
 	if runtime.GOOS == "windows" {
 		for k := range e.values {

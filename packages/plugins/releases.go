@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -29,16 +30,51 @@ func IsMusl() bool {
 	matches, _ := filepath.Glob("/lib/ld-musl-*.so.1")
 	return len(matches) > 0
 }
+
+var checksumLine = regexp.MustCompile(`(?i)^([a-f0-9]{64})(?:\s+\*?(.+))?$`)
+
 func FileChecksum(text, filename string) (string, error) {
-	pattern := regexp.MustCompile(`(?i)^([a-f0-9]{64})(?:\s+\*?(.+))?$`)
+	text = strings.TrimPrefix(text, "\uFEFF")
 	for _, line := range strings.Split(text, "\n") {
-		m := pattern.FindStringSubmatch(strings.TrimSpace(line))
+		m := checksumLine.FindStringSubmatch(strings.TrimSpace(line))
 		if len(m) > 0 && (m[2] == "" || m[2] == filename) {
 			return m[1], nil
 		}
 	}
+	if checksum := powerShellChecksum(text, filename); checksum != "" {
+		return checksum, nil
+	}
 	return "", fmt.Errorf("no SHA-256 published for %s", filename)
 }
+
+// PowerShell's Get-FileHash | Format-List publishes algorithm, hash and build path.
+func powerShellChecksum(text, filename string) string {
+	fields := make(map[string]string, 3)
+	valid := true
+	for _, line := range strings.Split(text+"\n", "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			if valid && len(fields) == 3 && strings.EqualFold(fields["Algorithm"], "SHA256") && checksumPattern.MatchString(fields["Hash"]) && path.Base(strings.ReplaceAll(fields["Path"], "\\", "/")) == filename {
+				return strings.ToLower(fields["Hash"])
+			}
+			clear(fields)
+			valid = true
+			continue
+		}
+		key, value, found := strings.Cut(line, ":")
+		key, value = strings.TrimSpace(key), strings.TrimSpace(value)
+		if !found || (key != "Algorithm" && key != "Hash" && key != "Path") {
+			valid = false
+			continue
+		}
+		if _, duplicate := fields[key]; duplicate {
+			valid = false
+		}
+		fields[key] = value
+	}
+	return ""
+}
+
 func GoRelease(ctx context.Context, version, platform, architecture string) (ArchiveRelease, error) {
 	arch, err := releaseArchitecture(architecture)
 	if err != nil {

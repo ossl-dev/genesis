@@ -92,6 +92,9 @@ func TestDenoReleasePlatforms(t *testing.T) {
 				if !strings.HasSuffix(r.URL.Path, "deno-"+c.target+".zip.sha256sum") {
 					t.Error(r.URL)
 				}
+				if c.platform == "windows" {
+					return "\r\nAlgorithm : SHA256\r\nHash      : " + strings.ToUpper(testHash) + "\r\nPath      : C:\\a\\deno\\deno\\target\\release\\deno-" + c.target + ".zip\r\n\r\n", nil
+				}
 				return testHash + "  deno-" + c.target + ".zip", nil
 			})
 			release, err := DenoRelease(context.Background(), "2.5.4", c.platform, c.arch)

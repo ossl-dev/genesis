@@ -79,11 +79,12 @@ func TestHomebrewBootstrapBeforeTasks(t *testing.T) {
 			if err := Homebrew().Prepare(runtime, instance); err != nil {
 				t.Fatal(err)
 			}
-			prefix := "/opt/homebrew/bin"
+			prefix := filepath.Join("/opt", "homebrew", "bin")
 			if arch == "amd64" {
-				prefix = "/usr/local/bin"
+				prefix = filepath.Join("/usr", "local", "bin")
 			}
-			if !strings.HasPrefix(runtime.Env.Get("PATH"), prefix) {
+			paths := filepath.SplitList(runtime.Env.Get("PATH"))
+			if len(paths) == 0 || paths[0] != prefix {
 				t.Fatal(runtime.Env.Get("PATH"))
 			}
 			if len(*commands) != 3 || (*commands)[0].Command != "brew" || (*commands)[1].Command != "bash" || (*commands)[2].Command != "brew" {

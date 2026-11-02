@@ -1,0 +1,177 @@
+package core
+
+import (
+	"context"
+	"fmt"
+	"sort"
+	"sync"
+)
+
+type TaskResult struct {
+	OK      bool   `json:"ok"`
+	Details string `json:"details,omitempty"`
+	Error   string `json:"error,omitempty"`
+}
+type Task struct {
+	ID, Description string
+	Priority        int
+	DependsOn       []string
+	Execute         func(context.Context) (TaskResult, error)
+}
+type taskState struct {
+	task   Task
+	status string
+	result *TaskResult
+}
+type TaskRegistry struct {
+	mu    sync.RWMutex
+	runMu sync.Mutex
+	tasks map[string]*taskState
+	order []string
+}
+
+func NewTaskRegistry() *TaskRegistry { return &TaskRegistry{tasks: map[string]*taskState{}} }
+func (t *TaskRegistry) Register(task Task) error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if task.ID == "" || task.Execute == nil {
+		return fmt.Errorf("task id and executor are required")
+	}
+	if t.tasks == nil {
+		t.tasks = map[string]*taskState{}
+	}
+	if _, exists := t.tasks[task.ID]; exists {
+		return nil
+	}
+	task.DependsOn = append([]string(nil), task.DependsOn...)
+	t.tasks[task.ID] = &taskState{task: task, status: "pending"}
+	t.order = append(t.order, task.ID)
+	return nil
+}
+func (t *TaskRegistry) Has(id string) bool {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	_, ok := t.tasks[id]
+	return ok
+}
+func (t *TaskRegistry) Status(id string) string {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	if s := t.tasks[id]; s != nil {
+		return s.status
+	}
+	return "not-found"
+}
+func (t *TaskRegistry) Result(id string) (TaskResult, bool) {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	if s := t.tasks[id]; s != nil && s.result != nil {
+		return *s.result, true
+	}
+	return TaskResult{}, false
+}
+func (t *TaskRegistry) IDs() []string {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	return append([]string(nil), t.order...)
+}
+func (t *TaskRegistry) Clear() {
+	t.runMu.Lock()
+	defer t.runMu.Unlock()
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.tasks = map[string]*taskState{}
+	t.order = nil
+}
+func (t *TaskRegistry) sorted() ([]string, error) {
+	order := append([]string(nil), t.order...)
+	sort.SliceStable(order, func(i, j int) bool { return t.tasks[order[i]].task.Priority > t.tasks[order[j]].task.Priority })
+	state := map[string]int{}
+	result := []string{}
+	var visit func(string) error
+	visit = func(id string) error {
+		if state[id] == 2 {
+			return nil
+		}
+		if state[id] == 1 {
+			return fmt.Errorf("cyclic task dependency: %s", id)
+		}
+		s := t.tasks[id]
+		if s == nil {
+			return fmt.Errorf("missing task dependency: %s", id)
+		}
+		state[id] = 1
+		for _, dep := range s.task.DependsOn {
+			if err := visit(dep); err != nil {
+				return err
+			}
+		}
+		state[id] = 2
+		result = append(result, id)
+		return nil
+	}
+	for _, id := range order {
+		if err := visit(id); err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+func (t *TaskRegistry) ExecuteAll(ctx context.Context) (map[string]TaskResult, error) {
+	t.runMu.Lock()
+	defer t.runMu.Unlock()
+	t.mu.Lock()
+	order, err := t.sorted()
+	t.mu.Unlock()
+	if err != nil {
+		return nil, err
+	}
+	results := map[string]TaskResult{}
+	for _, id := range order {
+		if err := ctx.Err(); err != nil {
+			return results, err
+		}
+		t.mu.Lock()
+		s := t.tasks[id]
+		if s.result != nil {
+			results[id] = *s.result
+			t.mu.Unlock()
+			continue
+		}
+		failed := false
+		for _, dep := range s.task.DependsOn {
+			if !results[dep].OK {
+				failed = true
+			}
+		}
+		s.status = "running"
+		t.mu.Unlock()
+		result := TaskResult{}
+		if failed {
+			result.Error = "Dependencies failed"
+		} else {
+			result, err = executeTask(ctx, s.task)
+			if err != nil {
+				result = TaskResult{Error: err.Error()}
+			}
+		}
+		t.mu.Lock()
+		s.result = &result
+		if result.OK {
+			s.status = "completed"
+		} else {
+			s.status = "failed"
+		}
+		t.mu.Unlock()
+		results[id] = result
+	}
+	return results, nil
+}
+func executeTask(ctx context.Context, task Task) (result TaskResult, err error) {
+	defer func() {
+		if p := recover(); p != nil {
+			err = fmt.Errorf("task %s panicked: %v", task.ID, p)
+		}
+	}()
+	return task.Execute(ctx)
+}

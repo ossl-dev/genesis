@@ -258,3 +258,22 @@ func TestCanceledWorkflowDoesNotLoadConfig(t *testing.T) {
 		t.Fatalf("%v", err)
 	}
 }
+
+func TestLoginRejectsUnusableHome(t *testing.T) {
+	key := "HOME"
+	if runtime.GOOS == "windows" {
+		key = "USERPROFILE"
+	}
+	for _, home := range []string{"", "relative-home"} {
+		t.Run(home, func(t *testing.T) {
+			t.Setenv(key, home)
+			cwd := t.TempDir()
+			if _, _, err := runAt(t, cwd, "login", "--token", "private"); err == nil {
+				t.Fatal("unusable home accepted")
+			}
+			if _, err := os.Stat(filepath.Join(cwd, ".genesis")); !os.IsNotExist(err) {
+				t.Fatal("wrote metadata beneath cwd")
+			}
+		})
+	}
+}

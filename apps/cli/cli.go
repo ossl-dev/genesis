@@ -369,15 +369,8 @@ type tokenMetadata struct {
 	SavedAt string `json:"savedAt"`
 }
 
-func genesisHome() (string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(home, ".genesis"), nil
-}
 func login(opts cliOptions, out io.Writer) error {
-	home, err := genesisHome()
+	home, err := core.ResolveGenesisHome()
 	if err != nil {
 		return err
 	}
@@ -426,7 +419,7 @@ func list(cwd string, opts cliOptions, out, errOut io.Writer) error {
 				break
 			}
 		}
-		home, err := genesisHome()
+		home, err := core.ResolveGenesisHome()
 		if err != nil {
 			return err
 		}

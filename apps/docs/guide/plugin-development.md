@@ -36,7 +36,9 @@ methods: `describe`, `parseOptions`, `prepare`, `registerTasks`, `preApply`,
 hooks; omitted hooks retain the core defaults. `parseOptions` returns normalized `options`.
 Lifecycle responses may return an `env` delta. Detection/apply/validation return
 `detect: {ok, details}`, `apply: {ok, didChange, details}`, or
-`validate: {ok, message}`. Empty hook responses still include protocol version.
+`validate: {ok, message}`. An error response can also include `apply` with
+`didChange` and partial details; the caller retains that state while failing the
+operation. Empty hook responses still include protocol version.
 `registerTasks` can return a `tasks` array with `id`, `description`, `priority`,
 `dependsOn`, `command`, `args`, and optional `timeoutSeconds` (0–86400).
 

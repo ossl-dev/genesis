@@ -26,3 +26,20 @@ go run ./scripts/release
 Installer smoke: `go run ./scripts/smoke installers`. It uses disposable prefixes
 and published downloads. Package and Docker modes require disposable Linux root
 hosts with `GENESIS_DISPOSABLE_HOST=1`; never run them on a workstation.
+
+## Profiling
+
+Core and release-parser benchmarks isolate Go overhead from downloads and child
+programs. Compare several runs on the same host before changing concurrency or
+memory limits:
+
+```sh
+go test ./packages/core -run '^$' -bench 'Benchmark(BuildPluginGraph|ApplyEnvironment|ParallelDependencyChain)$' -benchmem -count=5
+go test ./packages/plugins -run '^$' -bench '^BenchmarkGoReleaseManifest$' -benchmem -count=5
+```
+
+The release fixture is 2.16 MiB: streaming reduced allocated bytes by about 97%
+and allocation count by 20%, with about 4% more decoder time than buffered
+parsing in local measurements. It validates the entire manifest and retains
+size/deadline limits. These are parser measurements, not installer speed claims.
+See [execution benchmarks](/api/execution) for graph and worker measurements.

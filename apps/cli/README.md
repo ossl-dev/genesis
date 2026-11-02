@@ -13,7 +13,8 @@ noninteractive use and preserves existing files.
 `--timeout 15m` sets a deadline for config loading and environment operations;
 apply, doctor, diff, and validate accept it. Cancellation stops active child
 commands and downloads; completed host changes are not rolled back.
-Inspection commands accept `--config` and `--json`. Failed apply, validation,
+Inspection commands accept `--config` and `--json`. Apply reports plugin status and reported changes even on partial failure.
+Failed apply, validation,
 and diagnostics exit nonzero. Cloud apply fails explicitly; login only stores
 private local token metadata. `list --format json --cloud` keeps warnings on
 stderr and emits valid JSON on stdout.

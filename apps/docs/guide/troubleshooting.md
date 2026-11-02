@@ -11,6 +11,18 @@ JSON value on stdout; use stderr for diagnostics.
 Set `GENESIS_DEBUG=1` for configuration and task execution diagnostics on stderr.
 JSON commands suppress diagnostic chatter.
 
+## Home and executable paths
+
+Default managed installations and local credentials require an available,
+absolute HOME (USERPROFILE on Windows). Invalid/relative home paths fail before
+writing a default prefix. An explicit absolute `install_dir` remains usable
+without a home; matching host tools can still satisfy detection. NVM_DIR and
+XDG_CONFIG_HOME must also be absolute when used for NVM setup.
+
+Relative PATH entries resolve against the command's working directory, including
+paths containing spaces. Genesis does not fall back to a different host PATH
+when the configured environment cannot find a command.
+
 ## Missing tools or wrong versions
 
 Run `genesis doctor --config configs/dev.yml`. Managed runtime paths are exposed

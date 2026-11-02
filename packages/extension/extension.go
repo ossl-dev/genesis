@@ -213,14 +213,15 @@ func Load(ctx context.Context, cwd string, instance core.Instance) (core.Plugin,
 	}
 	plugin.Apply = func(r *core.Runtime, i core.Instance) (core.ApplyResult, error) {
 		reply, err := invoke(r, "apply", i)
+		if reply.Apply != nil {
+			return *reply.Apply, err
+		}
 		if err != nil {
 			return core.ApplyResult{}, err
 		}
-		if reply.Apply == nil {
-			return core.ApplyResult{}, errors.New("plugin apply response missing")
-		}
-		return *reply.Apply, nil
+		return core.ApplyResult{}, errors.New("plugin apply response missing")
 	}
+
 	plugin.Validate = func(r *core.Runtime, i core.Instance) (core.ValidateResult, error) {
 		reply, err := invoke(r, "validate", i)
 		if err != nil {

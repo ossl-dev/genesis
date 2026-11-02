@@ -172,21 +172,29 @@ func Run(ctx context.Context, args []string, cwd string, in io.Reader, out, errO
 		} else {
 			summaries, err = core.ApplyEnvironmentParallel(config, nodes, runtime, opts.workers)
 		}
+		failed := false
+		if len(summaries) > 0 {
+			table := tabwriter.NewWriter(out, 0, 4, 2, ' ', 0)
+			fmt.Fprintln(table, "Plugin\tStatus\tChanged\tDetails")
+			for _, summary := range summaries {
+				status, changed := "ok", "no"
+				if !summary.OK {
+					failed = true
+					status = "error"
+				}
+				if summary.DidChange {
+					changed = "yes"
+				}
+				fmt.Fprintf(table, "%s\t%s\t%s\t%s\n", summary.ID, status, changed, summary.Details)
+			}
+			if outputErr := table.Flush(); outputErr != nil {
+				return errors.Join(err, outputErr)
+			}
+		}
 		if err != nil {
 			return err
 		}
-		table := tabwriter.NewWriter(out, 0, 4, 2, ' ', 0)
-		fmt.Fprintln(table, "Plugin\tStatus\tDetails")
-		failed := false
-		for _, s := range summaries {
-			status := "ok"
-			if !s.OK {
-				failed = true
-				status = "error"
-			}
-			fmt.Fprintf(table, "%s\t%s\t%s\n", s.ID, status, s.Details)
-		}
-		table.Flush()
+
 		if failed {
 			return errors.New("environment apply failed")
 		}

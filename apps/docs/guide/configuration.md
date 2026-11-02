@@ -40,6 +40,7 @@ tools:
 Builtin module names accept `node`, `builtin:node`, and existing qualified
 builtin aliases. Categories are tool, sdk, language, library, and framework.
 IDs must be unique across all sections. Dependencies reference configured IDs.
+Config paths must resolve to regular files; named pipes/devices are rejected.
 Unknown builtin options and malformed values fail before provisioning.
 
 `${NAME}` references expand recursively from the process environment. Unset
@@ -115,3 +116,7 @@ later actions. Completed system/package changes are retained.
 ```sh
 genesis apply --parallel 4 --timeout 15m
 ```
+
+Apply prints each completed or failed plugin's status and reported change flag,
+even when a later action fails. This is partial execution evidence: shared system
+prerequisites can also change the host. It is not a rollback guarantee.

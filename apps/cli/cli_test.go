@@ -155,6 +155,17 @@ func TestMain(m *testing.M) {
 			os.Exit(3)
 		}
 		response := map[string]any{"protocol": 1}
+		if os.Getenv("GENESIS_CLI_TEST_PLUGIN_MODE") == "partial" {
+			if request.Method == "describe" {
+				response["methods"] = []string{"apply"}
+			}
+			if request.Method == "apply" {
+				response["error"] = "configuration failed after write"
+				response["apply"] = map[string]any{"ok": false, "didChange": true, "details": "prefix prepared"}
+			}
+			json.NewEncoder(os.Stdout).Encode(response)
+			os.Exit(0)
+		}
 		switch request.Method {
 		case "describe":
 			response["methods"] = []string{"detect", "validate"}
@@ -275,5 +286,28 @@ func TestLoginRejectsUnusableHome(t *testing.T) {
 				t.Fatal("wrote metadata beneath cwd")
 			}
 		})
+	}
+}
+
+func TestApplyReportsPartialChangesOnFailure(t *testing.T) {
+	t.Setenv("GENESIS_CLI_TEST_PLUGIN", "1")
+	t.Setenv("GENESIS_CLI_TEST_PLUGIN_MODE", "partial")
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cwd := t.TempDir()
+	data, _ := json.Marshal(map[string]any{"tools": []map[string]any{{"id": "service", "category": "tool", "module": "exec:" + executable}}})
+	if err = os.WriteFile(filepath.Join(cwd, "genesis.config.json"), data, 0600); err != nil {
+		t.Fatal(err)
+	}
+	out, _, err := runAt(t, cwd, "apply")
+	if err == nil {
+		t.Fatal("failure accepted")
+	}
+	for _, want := range []string{"service", "error", "Changed", "yes", "prefix prepared"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("missing %s in %q", want, out)
+		}
 	}
 }

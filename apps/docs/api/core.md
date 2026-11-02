@@ -50,6 +50,6 @@ See [Plugin API](/api/plugin), [Task Registry](/api/task-registry), [Parallel Ex
 
 ## Cache metadata prototype
 
-`NewEnvironmentCacheManager(CacheConfig)` creates an in-memory metadata store. `CacheEnvironment`, `ExportEnvironment`, `ImportEnvironment`, `CreateSnapshot`, `Cleanup`, and `GetStats` retain metadata operations. Config checksums use SHA-256; imports are validated and limited to 8 MiB. `CompressMetadata` and `DecompressMetadata` provide bounded gzip transport.
+`NewEnvironmentCacheManager(CacheConfig)` creates an in-memory metadata store. `CacheEnvironment`, `ExportEnvironment`, `ImportEnvironment`, `CreateSnapshot`, `Cleanup`, and `GetStats` retain metadata operations. Metadata retains host platform/architecture and an available Node version. Config checksums use SHA-256; imports are validated and limited to 8 MiB. `CompressMetadata` and `DecompressMetadata` provide bounded gzip transport.
 
 Artifact capture, durable reload, filesystem/network restore, encryption, remote synchronization, tarball export, and Docker export remain unfinished. Unsupported operations return errors; snapshots report `Restorable: false`. CLI apply does not create backups or populate this prototype. Snapshot metadata includes environment values and should be treated as private.

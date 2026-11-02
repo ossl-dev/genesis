@@ -3,6 +3,7 @@ package core
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
@@ -108,7 +109,6 @@ type CacheConfig struct {
 	CompressionLevel              int
 	EncryptionEnabled, RemoteSync bool
 	RemoteURL                     string
-	Directory                     string
 }
 type CacheStats struct {
 	TotalEnvironments        int
@@ -179,7 +179,11 @@ func (m *EnvironmentCacheManager) CacheEnvironment(name string, config Config, d
 		return CachedEnvironment{}, err
 	}
 	now := time.Now()
-	entry := CachedEnvironment{ID: id, Name: name, Description: description, Config: config, Metadata: EnvironmentMetadata{Platform: GetPlatform(), Arch: runtime.GOARCH, Versions: map[string]string{}, Dependencies: []string{}, LastUsed: now}, Checksum: checksum, CreatedAt: now, UpdatedAt: now, Tags: append([]string{}, tags...)}
+	versions := map[string]string{}
+	if result, detectErr := RunCommand(context.Background(), "node", []string{"--version"}, CommandOptions{Timeout: 5 * time.Second}); detectErr == nil && result.Code == 0 {
+		versions["node"] = result.Stdout
+	}
+	entry := CachedEnvironment{ID: id, Name: name, Description: description, Config: config, Metadata: EnvironmentMetadata{Platform: GetPlatform(), Arch: runtime.GOARCH, Versions: versions, Dependencies: []string{}, LastUsed: now}, Checksum: checksum, CreatedAt: now, UpdatedAt: now, Tags: append([]string{}, tags...)}
 	copy, err := cloneCached(entry)
 	if err != nil {
 		return entry, err

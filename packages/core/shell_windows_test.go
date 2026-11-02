@@ -25,3 +25,23 @@ func TestWindowsBatchRuntimePathAndLiteralArguments(t *testing.T) {
 		t.Fatal(result, err)
 	}
 }
+func TestWindowsEnvironmentKeysCaseInsensitive(t *testing.T) {
+	env := NewEnvironment(map[string]string{"Path": "original", "Home": "home"})
+	env.Set("PATH", "new")
+	if env.Get("path") != "new" || env.Get("HOME") != "home" {
+		t.Fatal(env.Snapshot())
+	}
+	env.PrependPath("managed")
+	if strings.Contains(env.Get("Path"), "original") {
+		t.Fatal("stale PATH duplicate", env.Snapshot())
+	}
+	paths := 0
+	for key := range env.Snapshot() {
+		if strings.EqualFold(key, "path") {
+			paths++
+		}
+	}
+	if paths != 1 {
+		t.Fatal("PATH duplicates", env.Snapshot())
+	}
+}

@@ -155,12 +155,12 @@ func NewEnvironment(values map[string]string) *Environment {
 		for _, s := range os.Environ() {
 			k, v, ok := strings.Cut(s, "=")
 			if ok {
-				e.values[k] = v
+				e.values[environmentKey(k)] = v
 			}
 		}
 	} else {
 		for k, v := range values {
-			e.values[k] = v
+			e.values[environmentKey(k)] = v
 		}
 	}
 	return e
@@ -168,9 +168,13 @@ func NewEnvironment(values map[string]string) *Environment {
 func (e *Environment) Get(key string) string {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
-	return e.values[key]
+	return e.values[environmentKey(key)]
 }
-func (e *Environment) Set(key, value string) { e.mu.Lock(); defer e.mu.Unlock(); e.values[key] = value }
+func (e *Environment) Set(key, value string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.values[environmentKey(key)] = value
+}
 func (e *Environment) Snapshot() map[string]string {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
@@ -200,4 +204,11 @@ func (e *Environment) PrependPath(path string) {
 		}
 	}
 	e.values[key] = strings.Join(result, string(os.PathListSeparator))
+}
+
+func environmentKey(key string) string {
+	if runtime.GOOS == "windows" {
+		return strings.ToUpper(key)
+	}
+	return key
 }

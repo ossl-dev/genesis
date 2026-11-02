@@ -75,3 +75,7 @@ The initial migration overreached by replacing VitePress and deleting
 of Genesis implementation. Restore VitePress configuration/theme from the previous
 commit, retain updated Markdown, and keep all docs dependencies under `apps/docs`.
 The Go migration and source-artifact checks exclude this independent project.
+
+The migrated module targets Go 1.27, with Go 1.27.3 as the recommended toolchain.
+This uses current runtime/security defaults and container-aware CPU scheduling
+instead of compatibility defaults inherited from the initial Go 1.23 bootstrap.

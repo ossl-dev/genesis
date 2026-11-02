@@ -1,4 +1,4 @@
-ARG GO_IMAGE=golang:1.23
+ARG GO_IMAGE=golang:1.27.3
 ARG BASE_IMAGE=debian:bookworm-slim
 FROM ${GO_IMAGE} AS builder
 WORKDIR /src

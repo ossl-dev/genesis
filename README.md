@@ -12,7 +12,7 @@ go build -trimpath -o bin/genesis ./apps/cli
 ./bin/genesis --help
 ```
 
-Go 1.23 or newer builds the source; use a supported Go release for production.
+Go 1.27 or newer builds the source; use a supported Go release for production.
 The resulting binary needs no language runtime. Cross builds cover macOS, Linux,
 and Windows on amd64 and arm64. Native installer support varies by plugin.
 

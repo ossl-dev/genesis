@@ -1,6 +1,6 @@
 # Installation
 
-Build with Go 1.23 or newer; use a supported Go release for production builds.
+Build with Go 1.27 or newer; use a supported Go release for production builds.
 
 ```sh
 git clone https://github.com/ossl-dev/genesis.git

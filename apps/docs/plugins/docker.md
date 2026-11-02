@@ -8,7 +8,7 @@ tools:
     install_desktop: false
 ```
 
-Import `docker(options = {})` from `@ossl/genesis-plugins/docker`.
+Go API: `plugins.Docker()` from `github.com/ossl-dev/genesis/packages/plugins`.
 
 | Option | Default | Meaning |
 | --- | --- | --- |

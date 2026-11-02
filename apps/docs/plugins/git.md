@@ -8,7 +8,7 @@ tools:
     install_dir: "${HOME}/.genesis/git"
 ```
 
-Import `git(options = {})` from `@ossl/genesis-plugins/git`.
+Go API: `plugins.Git()` from `github.com/ossl-dev/genesis/packages/plugins`.
 
 | Option | Default | Meaning |
 | --- | --- | --- |

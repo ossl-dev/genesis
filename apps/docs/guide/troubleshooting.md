@@ -8,6 +8,9 @@ duplicate IDs, missing dependencies, cycles, and unset `${NAME}` references fail
 before provisioning. Go configs require an installed Go compiler and exactly one
 JSON value on stdout; use stderr for diagnostics.
 
+Set `GENESIS_DEBUG=1` for configuration and task execution diagnostics on stderr.
+JSON commands suppress diagnostic chatter.
+
 ## Missing tools or wrong versions
 
 Run `genesis doctor --config configs/dev.yml`. Managed runtime paths are exposed

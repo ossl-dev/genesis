@@ -10,7 +10,7 @@ languages:
     # install_dir: "${HOME}/.local/share/genesis/jdk-17"
 ```
 
-Import `java(options)` from `@ossl/genesis-plugins/java`.
+Go API: `plugins.Java()` from `github.com/ossl-dev/genesis/packages/plugins`.
 
 | Option | Meaning |
 | --- | --- |
@@ -22,4 +22,4 @@ Default directories are `/usr/local/java/jdk-<version>` on macOS, `/opt/java/jdk
 
 Adoptium's API resolves the actual release/build and checksum. Downloads are streamed and verified before extraction. Only the freshly extracted JDK is selected; macOS bundles use `Contents/Home`. Both `java` and `javac` must match the requested components, so a JRE alone cannot satisfy the JDK requirement. The staged executables are checked before promotion, and a failed promotion or relocated verification restores the previous directory. Recovery failure retains the backup path in the error. Crashes can leave staging and a lock requiring manual recovery.
 
-Genesis sets runtime `JAVA_HOME` and `PATH`, including when rediscovering an existing managed install. Set them in your shell for future sessions; profiles are not edited. The host must provide `tar` (including ZIP support on Windows). See [Platform Support](/guide/platform-support) for validation limits.
+Genesis sets runtime `JAVA_HOME` and `PATH`, including when rediscovering an existing managed install. Set them in your shell for future sessions; profiles are not edited. Archive extraction uses Go directly; no host archive utility is needed. See [Platform Support](/guide/platform-support) for validation limits.

@@ -10,7 +10,7 @@ tools:
     version: "10.19.0"
 ```
 
-Import `pnpm(options)` from `@ossl/genesis-plugins/pnpm`.
+Go API: `plugins.Pnpm()` from `github.com/ossl-dev/genesis/packages/plugins`.
 
 - `version`: required full numeric release.
 - `node_plugin`: configured Node plugin ID, default `node`. Set `null` to use Node/npm already on PATH.

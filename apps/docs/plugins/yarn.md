@@ -10,7 +10,7 @@ tools:
     version: "4.9.4"
 ```
 
-Import `yarn(options)` from `@ossl/genesis-plugins/yarn`.
+Go API: `plugins.Yarn()` from `github.com/ossl-dev/genesis/packages/plugins`.
 
 `version` requires a full numeric release. Yarn 1 installs `yarn@<version>`; modern releases install the upstream `@yarnpkg/cli-dist@<version>` package. Unpublished versions fail explicitly. `node_plugin` defaults to the configured ID `node`; set another ID for a custom instance or `null` to use an existing Node/npm runtime. `install_dir` is an optional absolute prefix owned by this plugin, defaulting to `~/.genesis/yarn`.
 

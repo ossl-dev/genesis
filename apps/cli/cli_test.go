@@ -188,3 +188,17 @@ func TestDoctorReportsValidationMessage(t *testing.T) {
 		t.Fatalf("%q %v", out, err)
 	}
 }
+
+func TestDebugRespectsJSONOutput(t *testing.T) {
+	t.Setenv("GENESIS_DEBUG", "1")
+	cwd := t.TempDir()
+	os.WriteFile(filepath.Join(cwd, "genesis.config.yaml"), []byte("tools: []\n"), 0644)
+	out, errs, err := runAt(t, cwd, "apply", "--dry-run")
+	if err != nil || !strings.Contains(errs, "loading config") {
+		t.Fatalf("%q %q %v", out, errs, err)
+	}
+	out, errs, err = runAt(t, cwd, "apply", "--dry-run", "--json")
+	if err != nil || errs != "" || !json.Valid([]byte(out)) {
+		t.Fatalf("%q %q %v", out, errs, err)
+	}
+}

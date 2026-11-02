@@ -11,7 +11,7 @@ tools:
     # install_dir: "${HOME}/.local/share/genesis/node"
 ```
 
-Import `node(options)` from `@ossl/genesis-plugins/node`.
+Go API: `plugins.Node()` from `github.com/ossl-dev/genesis/packages/plugins`.
 
 | Option | Default | Meaning |
 | --- | --- | --- |
@@ -22,7 +22,7 @@ Import `node(options)` from `@ossl/genesis-plugins/node`.
 
 Standalone installation resolves the newest stable release matching the requested components from Node's official index and verifies its published SHA-256. It extracts into unique staging, verifies the executable before/after promotion, and restores the previous directory on promotion failure. A nonempty destination without the expected executable is refused. Unsupported architectures, missing assets, and musl Linux fail explicitly. The default directory is `~/.genesis/node`; Windows uses the native ZIP path regardless of `use_nvm`.
 
-Managed standalone installs are rediscovered on later runs and exposed to subsequent Genesis commands through PATH. Unix archives require `tar`; Windows requires ZIP-capable `tar`. Add the printed executable directory to your shell PATH for future sessions. Archive replacement owns the whole configured directory, including packages installed there.
+Managed standalone installs are rediscovered on later runs and exposed to subsequent Genesis commands through PATH. Archive extraction uses Go directly on every platform. Add the printed executable directory to your shell PATH for future sessions. Archive replacement owns the whole configured directory, including packages installed there.
 
 NVM installation resolves and verifies the selected Node executable, adds it to runtime PATH, and sets the default alias. Failed installation, alias updates, or version verification report failure. Your calling shell still needs its NVM profile setup or a reload. Global packages use npm from the selected runtime PATH, without requiring an NVM shell when an existing Node already matches. Package failures stop apply.
 

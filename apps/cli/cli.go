@@ -110,6 +110,9 @@ func Run(ctx context.Context, args []string, cwd string, in io.Reader, out, errO
 	if command == "apply" && opts.workers < 1 {
 		return errors.New("--parallel must be a positive integer")
 	}
+	if os.Getenv("GENESIS_DEBUG") != "" && !opts.json {
+		fmt.Fprintf(errOut, "genesis: loading config from %s\n", cwd)
+	}
 	config, err := core.LoadConfigWithOptions(cwd, opts.config, core.ConfigLoadOptions{GoConfigLoader: func(dir, path string) (core.Config, error) { return extension.LoadGoConfigContext(ctx, dir, path) }})
 	if err != nil {
 		return err
@@ -122,13 +125,17 @@ func Run(ctx context.Context, args []string, cwd string, in io.Reader, out, errO
 	if err != nil {
 		return err
 	}
-	runtime := &core.Runtime{Context: ctx, Cwd: cwd, Logger: log.New(errOut, "genesis: ", 0)}
+	logger := log.New(errOut, "genesis: ", 0)
+	if opts.json {
+		logger = log.New(io.Discard, "", 0)
+	}
+	if os.Getenv("GENESIS_DEBUG") != "" && !opts.json {
+		logger.Printf("Loaded %d plugins in dependency order", len(nodes))
+	}
+	runtime := &core.Runtime{Context: ctx, Cwd: cwd, Logger: logger}
 	runtime.Ensure()
 	for key, value := range config.Env {
 		runtime.Env.Set(key, value)
-	}
-	if opts.json {
-		runtime.Logger = log.New(io.Discard, "", 0)
 	}
 	switch command {
 	case "apply":

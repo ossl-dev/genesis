@@ -11,7 +11,7 @@ tools:
     global_packages: [jq]
 ```
 
-Import `homebrew(options = {})` from `@ossl/genesis-plugins/homebrew`.
+Go API: `plugins.Homebrew()` from `github.com/ossl-dev/genesis/packages/plugins`.
 
 | Option | Default | Meaning |
 | --- | --- | --- |

@@ -275,3 +275,75 @@ func TestGitBuildFailureCleansTemporarySource(t *testing.T) {
 		t.Fatalf("temporary build leaked: %s", work)
 	}
 }
+
+func TestGitVerifyMinGitRelocatedHTTPSHelper(t *testing.T) {
+	for _, prefix := range []string{"mingw64", "ucrt64", "clangarm64"} {
+		t.Run(prefix, func(t *testing.T) {
+			root := t.TempDir()
+			execPath := filepath.Join(root, prefix, "libexec", "git-core")
+			helperPath := filepath.Join(root, prefix, "bin", "git-remote-https.exe")
+			for _, directory := range []string{execPath, filepath.Dir(helperPath)} {
+				if err := os.MkdirAll(directory, 0755); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := os.WriteFile(helperPath, nil, 0755); err != nil {
+				t.Fatal(err)
+			}
+			runtime, _ := platformTestRuntime(t, "windows", func(_ string, args []string, _ core.CommandOptions) (core.CommandResult, error) {
+				if args[0] == "--version" {
+					return core.CommandResult{Stdout: "git version 2.53.0.windows.1"}, nil
+				}
+				return core.CommandResult{Stdout: execPath}, nil
+			})
+			if err := verifyGit(runtime, root, "2.53.0"); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Remove(helperPath); err != nil {
+				t.Fatal(err)
+			}
+			if err := verifyGit(runtime, root, "2.53.0"); err == nil || !strings.Contains(err.Error(), "git-remote-https.exe") {
+				t.Fatalf("missing bundled helper not reported: %v", err)
+			}
+		})
+	}
+}
+
+func TestGitVerifyRejectsExternalHTTPSHelperSymlink(t *testing.T) {
+	root := t.TempDir()
+	execPath := filepath.Join(root, "mingw64", "libexec", "git-core")
+	helperPath := filepath.Join(root, "mingw64", "bin", "git-remote-https.exe")
+	for _, directory := range []string{execPath, filepath.Dir(helperPath)} {
+		if err := os.MkdirAll(directory, 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	external := filepath.Join(t.TempDir(), "git-remote-https.exe")
+	if err := os.WriteFile(external, nil, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(external, helperPath); err != nil {
+		t.Skipf("symlink unavailable: %v", err)
+	}
+	runtime, _ := platformTestRuntime(t, "windows", func(_ string, args []string, _ core.CommandOptions) (core.CommandResult, error) {
+		if args[0] == "--version" {
+			return core.CommandResult{Stdout: "git version 2.53.0.windows.1"}, nil
+		}
+		return core.CommandResult{Stdout: execPath}, nil
+	})
+	if err := verifyGit(runtime, root, "2.53.0"); err == nil || !strings.Contains(err.Error(), "outside installation") {
+		t.Fatalf("external helper accepted: %v", err)
+	}
+}
+
+func TestGitVerifyExecPathCommandFailure(t *testing.T) {
+	runtime, _ := platformTestRuntime(t, "windows", func(_ string, args []string, _ core.CommandOptions) (core.CommandResult, error) {
+		if args[0] == "--version" {
+			return core.CommandResult{Stdout: "git version 2.53.0.windows.1"}, nil
+		}
+		return core.CommandResult{Code: 19, Stderr: "exec-path unavailable"}, nil
+	})
+	if err := verifyGit(runtime, t.TempDir(), "2.53.0"); err == nil || !strings.Contains(err.Error(), "exit 19") || !strings.Contains(err.Error(), "exec-path unavailable") {
+		t.Fatalf("command diagnosis missing: %v", err)
+	}
+}

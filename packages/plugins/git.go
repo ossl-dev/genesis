@@ -208,24 +208,48 @@ func verifyGit(runtime *core.Runtime, root, version string) error {
 		return fmt.Errorf("Git HTTPS helper check failed: %w", err)
 	}
 	if helpers.Code != 0 {
-		return fmt.Errorf("Git HTTPS helper is unavailable inside the installation directory")
+		return fmt.Errorf("Git exec-path check failed (exit %d): %s", helpers.Code, helpers.Stderr)
 	}
 	helperDirectory := strings.TrimSpace(helpers.Stdout)
 	resolvedRoot, err := filepath.EvalSymlinks(root)
 	if err != nil {
-		return err
+		return fmt.Errorf("resolve Git installation %q: %w", root, err)
 	}
 	resolvedHelpers, err := filepath.EvalSymlinks(helperDirectory)
 	if err != nil {
-		return err
+		return fmt.Errorf("resolve Git exec-path %q: %w", helperDirectory, err)
 	}
-	relative, err := filepath.Rel(resolvedRoot, resolvedHelpers)
+	if !contained(resolvedRoot, resolvedHelpers) {
+		return fmt.Errorf("Git exec-path %q is outside installation %q", resolvedHelpers, resolvedRoot)
+	}
 	helper := "git-remote-https"
 	if runtime.Platform == "windows" {
 		helper += ".exe"
 	}
-	if err != nil || filepath.IsAbs(relative) || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) || !exists(filepath.Join(helperDirectory, helper)) {
-		return fmt.Errorf("Git HTTPS helper is unavailable inside the installation directory")
+	candidates := []string{filepath.Join(resolvedHelpers, helper)}
+	// MinGit relocates libexec/git-core executables into the same runtime's bin.
+	if runtime.Platform == "windows" && strings.EqualFold(filepath.Base(resolvedHelpers), "git-core") && strings.EqualFold(filepath.Base(filepath.Dir(resolvedHelpers)), "libexec") {
+		candidates = append(candidates, filepath.Join(filepath.Dir(filepath.Dir(resolvedHelpers)), "bin", helper))
 	}
-	return nil
+	for _, candidate := range candidates {
+		resolved, err := filepath.EvalSymlinks(candidate)
+		if os.IsNotExist(err) {
+			continue
+		}
+		if err != nil {
+			return fmt.Errorf("resolve Git HTTPS helper %q: %w", candidate, err)
+		}
+		if !contained(resolvedRoot, resolved) {
+			return fmt.Errorf("Git HTTPS helper %q resolves outside installation %q", candidate, resolvedRoot)
+		}
+		info, err := os.Stat(resolved)
+		if err != nil {
+			return fmt.Errorf("inspect Git HTTPS helper %q: %w", resolved, err)
+		}
+		if !info.Mode().IsRegular() {
+			return fmt.Errorf("Git HTTPS helper %q is not a regular file", resolved)
+		}
+		return nil
+	}
+	return fmt.Errorf("Git HTTPS helper is unavailable inside installation %q (exec-path %q; searched %q)", resolvedRoot, resolvedHelpers, candidates)
 }

@@ -13,6 +13,6 @@ Go API: `plugins.Deno()` from `github.com/ossl-dev/genesis/packages/plugins`.
 
 `version` requires a full numeric release. `install_dir` is an optional absolute directory owned by this installation; the default is `~/.genesis/deno`. An explicit directory selects that managed location rather than a matching executable elsewhere on PATH.
 
-The installer fetches the official release ZIP and its `.sha256sum`, streams and checks the archive, verifies the staged `deno --version`, then promotes it with recovery on failure. Managed installs are rediscovered on later runs. Genesis sets runtime `DENO_INSTALL` and adds its `bin` directory to `PATH`; set your shell PATH separately for future sessions. Matching versions skip installation. No shell profiles are edited.
+The installer fetches the official release ZIP and its `.sha256sum` (standard shasum or Windows PowerShell output), streams and checks the archive, verifies the staged `deno --version`, then promotes it with recovery on failure. Managed installs are rediscovered on later runs. Genesis sets runtime `DENO_INSTALL` and adds its `bin` directory to `PATH`; set your shell PATH separately for future sessions. Matching versions skip installation. No shell profiles are edited.
 
 ZIP extraction is handled directly by Go; no host archive utility is needed. Upstream release availability and OS requirements still apply; see [Deno installation](https://docs.deno.com/runtime/getting_started/installation/) and [platform validation limits](/guide/platform-support).

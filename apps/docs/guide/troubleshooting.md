@@ -44,6 +44,14 @@ are protected. Prefix locks prevent concurrent replacement; after a crash, inspe
 that no installer is running before manually removing a stale lock. Recovery errors
 report a retained backup path; preserve it until the installation is recovered.
 
+## GitHub release API limits
+
+Bun and Windows Git release selection query GitHub's API. On shared CI hosts,
+unauthenticated requests can hit rate limits. Supply process `GITHUB_TOKEN` or
+`GH_TOKEN`; Genesis sends it only to the HTTPS GitHub API, strips it from
+redirects to other origins, and does not print it in download errors. The
+installer workflow uses its read-only GitHub Actions token for these queries.
+
 ## Docker
 
 CLI presence alone is insufficient. Validation checks daemon readiness with a

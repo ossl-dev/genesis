@@ -36,6 +36,8 @@ jobs:
       - if: runner.os == 'macOS'
         run: xcode-select -p && make --version
       - run: go run ./scripts/smoke installers
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
 
   linux-packages:
     name: Packages on ${{ matrix.image }}

@@ -69,16 +69,18 @@ func TestGoManifestBoundsAndBodyClosure(t *testing.T) {
 type canceledManifestReader struct {
 	prefix string
 	cancel context.CancelFunc
-	read   bool
+	offset int
 }
 
 func (r *canceledManifestReader) Read(p []byte) (int, error) {
-	if r.read {
+	if r.offset == len(r.prefix) {
 		return 0, io.EOF
 	}
-	r.read = true
-	n := copy(p, r.prefix)
-	r.cancel()
+	n := copy(p, r.prefix[r.offset:])
+	r.offset += n
+	if r.offset == len(r.prefix) {
+		r.cancel()
+	}
 	return n, nil
 }
 func TestGoManifestCancellationAfterMatch(t *testing.T) {
@@ -124,23 +126,26 @@ func TestGoManifestHTTPFailureClosesBody(t *testing.T) {
 }
 
 type unexpectedTrailerReader struct {
-	prefix string
-	reads  int
+	prefix         string
+	offset         int
+	readPastPrefix bool
 }
 
 func (r *unexpectedTrailerReader) Read(p []byte) (int, error) {
-	r.reads++
-	if r.reads > 1 {
+	if r.offset == len(r.prefix) {
+		r.readPastPrefix = true
 		return 0, io.ErrUnexpectedEOF
 	}
-	return copy(p, r.prefix), nil
+	n := copy(p, r.prefix[r.offset:])
+	r.offset += n
+	return n, nil
 }
 func TestGoManifestRejectsTrailerWithoutMaterializingIt(t *testing.T) {
 	reader := &unexpectedTrailerReader{prefix: `[{"files":[{"filename":"target","sha256":"` + testHash + `"}]}]{`}
 	if _, err := readGoArchiveChecksum(reader, "target"); err == nil || !strings.Contains(err.Error(), "unexpected data") {
 		t.Fatal(err)
 	}
-	if reader.reads != 1 {
+	if reader.readPastPrefix {
 		t.Fatal("decoder attempted to materialize a rejected trailing object")
 	}
 }

@@ -11,15 +11,24 @@ import (
 
 var nodeVersion = regexp.MustCompile(`^v?(\d+\.\d+\.\d+)$`)
 
-func nvmDirectory(r *core.Runtime) string {
-	if s := r.Env.Get("NVM_DIR"); s != "" {
-		return s
+func nvmDirectory(r *core.Runtime) (string, error) {
+	if directory := r.Env.Get("NVM_DIR"); directory != "" {
+		return checkedInstallDirectory(directory, "NVM_DIR")
 	}
-	if s := r.Env.Get("XDG_CONFIG_HOME"); s != "" {
-		return filepath.Join(s, "nvm")
+	if directory := r.Env.Get("XDG_CONFIG_HOME"); directory != "" {
+		home, err := checkedInstallDirectory(directory, "XDG_CONFIG_HOME")
+		if err != nil {
+			return "", err
+		}
+		return filepath.Join(home, "nvm"), nil
 	}
-	return filepath.Join(runtimeHome(r), ".nvm")
+	home, err := runtimeHome(r)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(home, ".nvm"), nil
 }
+
 func Node() core.Plugin {
 	standalone := simpleRuntime(runtimeSpec{name: "node", category: "tool", bin: func(r *core.Runtime, root string) string {
 		if r.Platform == "windows" {
@@ -43,6 +52,18 @@ func Node() core.Plugin {
 	}
 	plugin := standalone
 	plugin.Detect = detect
+	plugin.Prepare = func(r *core.Runtime, i core.Instance) error {
+		r.Ensure()
+		if !useNvm(r, i) {
+			return standalone.Prepare(r, i)
+		}
+		detected, err := detect(r, i)
+		if err != nil || detected.OK {
+			return err
+		}
+		_, err = nvmDirectory(r)
+		return err
+	}
 	plugin.RegisterTasks = func(r *core.Runtime, i core.Instance) error {
 		r.Ensure()
 		if !useNvm(r, i) {
@@ -50,6 +71,9 @@ func Node() core.Plugin {
 		}
 		found, err := detect(r, i)
 		if err != nil || found.OK {
+			return err
+		}
+		if _, err := nvmDirectory(r); err != nil {
 			return err
 		}
 		return core.RegisterPackageTasks(r, "curl")
@@ -66,7 +90,11 @@ func Node() core.Plugin {
 		if !useNvm(r, i) {
 			return standalone.Apply(r, i)
 		}
-		script := filepath.Join(nvmDirectory(r), "nvm.sh")
+		directory, err := nvmDirectory(r)
+		if err != nil {
+			return core.ApplyResult{}, err
+		}
+		script := filepath.Join(directory, "nvm.sh")
 		changed := false
 		if !exists(script) {
 			result, err := r.Run("bash", "-c", "set -o pipefail; curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash")

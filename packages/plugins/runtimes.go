@@ -13,7 +13,7 @@ import (
 
 type runtimeSpec struct {
 	name, category string
-	directory      func(*core.Runtime, core.Instance) string
+	directory      func(*core.Runtime, core.Instance) (string, error)
 	bin            func(*core.Runtime, string) string
 	check          func(*core.Runtime, core.Instance, string) (core.DetectResult, error)
 	release        func(*core.Runtime, core.Instance) (ArchiveRelease, error)
@@ -28,7 +28,7 @@ func simpleRuntime(spec runtimeSpec) core.Plugin {
 		}
 		return filepath.Join(root, "bin")
 	}
-	directory := func(r *core.Runtime, i core.Instance) string {
+	directory := func(r *core.Runtime, i core.Instance) (string, error) {
 		if spec.directory != nil {
 			return spec.directory(r, i)
 		}
@@ -42,7 +42,10 @@ func simpleRuntime(spec runtimeSpec) core.Plugin {
 	}
 	detect := func(r *core.Runtime, i core.Instance) (core.DetectResult, error) {
 		r.Ensure()
-		root := directory(r, i)
+		root, err := directory(r, i)
+		if err != nil {
+			return spec.check(r, i, spec.name)
+		}
 		executable := filepath.Join(bin(r, root), executableName(r, spec.name))
 		managed := exists(executable)
 		command := spec.name
@@ -55,7 +58,19 @@ func simpleRuntime(spec runtimeSpec) core.Plugin {
 		}
 		return result, err
 	}
-	return core.Plugin{ID: spec.name, Category: spec.category, ParseOptions: func(o map[string]any) (map[string]any, error) { return ParseOptions(spec.name, o) }, Detect: detect, Apply: func(r *core.Runtime, i core.Instance) (core.ApplyResult, error) {
+	return core.Plugin{ID: spec.name, Category: spec.category, Prepare: func(r *core.Runtime, i core.Instance) error {
+		r.Ensure()
+		if _, err := directory(r, i); err != nil {
+			detected, detectErr := spec.check(r, i, spec.name)
+			if detectErr != nil {
+				return detectErr
+			}
+			if !detected.OK {
+				return err
+			}
+		}
+		return nil
+	}, ParseOptions: func(o map[string]any) (map[string]any, error) { return ParseOptions(spec.name, o) }, Detect: detect, Apply: func(r *core.Runtime, i core.Instance) (core.ApplyResult, error) {
 		r.Ensure()
 		found, err := detect(r, i)
 		if err != nil {
@@ -67,9 +82,12 @@ func simpleRuntime(spec runtimeSpec) core.Plugin {
 		if spec.name == "java" && optionString(i.Options, "distribution") == "oracle" {
 			return core.ApplyResult{Details: "Oracle JDK requires manual download and license acceptance"}, nil
 		}
+		destination, err := directory(r, i)
+		if err != nil {
+			return core.ApplyResult{}, err
+		}
 		release, err := spec.release(r, i)
 		if err == nil {
-			destination := directory(r, i)
 			err = InstallArchive(r, destination, filepath.Join(strings.TrimPrefix(bin(r, ""), string(filepath.Separator)), executableName(r, spec.name)), release, func(root string) (string, error) {
 				if spec.selectRoot != nil {
 					return spec.selectRoot(r, root)
@@ -160,14 +178,14 @@ func binaryRuntime(name string) core.Plugin {
 func Bun() core.Plugin  { return binaryRuntime("bun") }
 func Deno() core.Plugin { return binaryRuntime("deno") }
 func Go() core.Plugin {
-	return simpleRuntime(runtimeSpec{name: "go", category: "language", directory: func(r *core.Runtime, i core.Instance) string {
-		if s := optionString(i.Options, "install_dir"); s != "" {
-			return s
+	return simpleRuntime(runtimeSpec{name: "go", category: "language", directory: func(r *core.Runtime, i core.Instance) (string, error) {
+		if _, exists := i.Options["install_dir"]; exists {
+			return managedDirectory(r, i, "go")
 		}
 		if r.Platform == "windows" {
 			return managedDirectory(r, i, "go")
 		}
-		return "/usr/local/go"
+		return "/usr/local/go", nil
 	}, check: func(r *core.Runtime, i core.Instance, command string) (core.DetectResult, error) {
 		return checkVersion(r, i, command, "Go", []string{"version"}, goVersion)
 	}, release: func(r *core.Runtime, i core.Instance) (ArchiveRelease, error) {
@@ -179,18 +197,22 @@ var javaVersion = regexp.MustCompile(`(?:version "|build )(\d+(?:\.\d+)*(?:_\d+)
 var javacVersion = regexp.MustCompile(`^javac (\d+(?:\.\d+)*(?:_\d+)?)`)
 
 func Java() core.Plugin {
-	return simpleRuntime(runtimeSpec{name: "java", category: "language", directory: func(r *core.Runtime, i core.Instance) string {
-		if s := optionString(i.Options, "install_dir"); s != "" {
-			return s
+	return simpleRuntime(runtimeSpec{name: "java", category: "language", directory: func(r *core.Runtime, i core.Instance) (string, error) {
+		if _, exists := i.Options["install_dir"]; exists {
+			return managedDirectory(r, i, "java")
 		}
 		parent := "/opt/java"
 		if r.Platform == "windows" {
-			parent = managedDirectory(r, i, "java")
+			var err error
+			parent, err = managedDirectory(r, i, "java")
+			if err != nil {
+				return "", err
+			}
 		}
 		if r.Platform == "macos" {
 			parent = "/usr/local/java"
 		}
-		return filepath.Join(parent, "jdk-"+optionString(i.Options, "version"))
+		return filepath.Join(parent, "jdk-"+optionString(i.Options, "version")), nil
 	}, check: checkJava, release: func(r *core.Runtime, i core.Instance) (ArchiveRelease, error) {
 		return JavaRelease(r.Context, optionString(i.Options, "version"), r.Platform, r.Arch)
 	}, selectRoot: func(r *core.Runtime, root string) (string, error) {

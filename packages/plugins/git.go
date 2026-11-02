@@ -14,7 +14,7 @@ import (
 
 var gitVersionPattern = regexp.MustCompile(`git version (\d+\.\d+\.\d+)`)
 
-func gitDirectory(runtime *core.Runtime, instance core.Instance) string {
+func gitDirectory(runtime *core.Runtime, instance core.Instance) (string, error) {
 	return managedDirectory(runtime, instance, "git")
 }
 func gitExecutable(runtime *core.Runtime, root string) string {
@@ -39,7 +39,14 @@ func checkGit(runtime *core.Runtime, command, requested string) (core.DetectResu
 }
 func detectGit(runtime *core.Runtime, instance core.Instance) (core.DetectResult, error) {
 	managed := optionString(instance.Options, "install_method") != "package"
-	target := gitExecutable(runtime, gitDirectory(runtime, instance))
+	if !managed {
+		return checkGit(runtime, "git", optionString(instance.Options, "version"))
+	}
+	directory, err := gitDirectory(runtime, instance)
+	if err != nil {
+		return checkGit(runtime, "git", optionString(instance.Options, "version"))
+	}
+	target := gitExecutable(runtime, directory)
 	found := managed && exists(target)
 	command := "git"
 	if found || (managed && optionString(instance.Options, "install_dir") != "") {
@@ -66,17 +73,21 @@ func Git() core.Plugin {
 	return core.Plugin{ID: "git", Category: "tool", ParseOptions: func(options map[string]any) (map[string]any, error) { return ParseOptions("git", options) }, Detect: detectGit,
 		Prepare: func(runtime *core.Runtime, instance core.Instance) error {
 			reason := gitUnsupported(runtime, instance)
-			if reason == "" {
+			if reason == "" && optionString(instance.Options, "install_method") == "package" {
 				return nil
 			}
 			detected, err := detectGit(runtime, instance)
 			if err != nil {
 				return err
 			}
-			if !detected.OK {
+			if detected.OK {
+				return nil
+			}
+			if reason != "" {
 				return errors.New(reason)
 			}
-			return nil
+			_, err = gitDirectory(runtime, instance)
+			return err
 		},
 		RegisterTasks: func(runtime *core.Runtime, instance core.Instance) error {
 			if gitUnsupported(runtime, instance) != "" || optionString(instance.Options, "install_method") == "binary" {
@@ -113,6 +124,10 @@ func applyGit(runtime *core.Runtime, instance core.Instance) (core.ApplyResult, 
 	if optionString(instance.Options, "install_method") == "package" {
 		return core.ApplyResult{Details: "Git is still unavailable after package installation: " + detected.Details + "; use source installation for a release pin"}, nil
 	}
+	destination, err := gitDirectory(runtime, instance)
+	if err != nil {
+		return core.ApplyResult{}, err
+	}
 	windows := runtime.Platform == "windows"
 	var release ArchiveRelease
 	if windows {
@@ -120,7 +135,6 @@ func applyGit(runtime *core.Runtime, instance core.Instance) (core.ApplyResult, 
 	} else {
 		release, err = GitSourceRelease(runtime.Context, optionString(instance.Options, "version"))
 	}
-	destination := gitDirectory(runtime, instance)
 	if err == nil {
 		executable, _ := filepath.Rel(destination, gitExecutable(runtime, destination))
 		err = InstallArchive(runtime, destination, executable, release, func(root string) (string, error) {

@@ -43,7 +43,10 @@ func npmPlugin(name string) core.Plugin {
 	}
 	detect := func(r *core.Runtime, i core.Instance) (core.DetectResult, error) {
 		r.Ensure()
-		root := managedDirectory(r, i, name)
+		root, locationErr := managedDirectory(r, i, name)
+		if locationErr != nil {
+			return check(r, i, name)
+		}
 		command := name
 		managed := exists(executable(r, root))
 		if managed || optionString(i.Options, "install_dir") != "" {
@@ -55,7 +58,19 @@ func npmPlugin(name string) core.Plugin {
 		}
 		return found, err
 	}
-	return core.Plugin{ID: name, Category: "tool", DependsOn: []string{"node"}, ParseOptions: func(o map[string]any) (map[string]any, error) { return ParseOptions(name, o) }, Detect: detect, Apply: func(r *core.Runtime, i core.Instance) (core.ApplyResult, error) {
+	return core.Plugin{ID: name, Category: "tool", Prepare: func(r *core.Runtime, i core.Instance) error {
+		r.Ensure()
+		if _, err := managedDirectory(r, i, name); err != nil {
+			detected, detectErr := check(r, i, name)
+			if detectErr != nil {
+				return detectErr
+			}
+			if !detected.OK {
+				return err
+			}
+		}
+		return nil
+	}, DependsOn: []string{"node"}, ParseOptions: func(o map[string]any) (map[string]any, error) { return ParseOptions(name, o) }, Detect: detect, Apply: func(r *core.Runtime, i core.Instance) (core.ApplyResult, error) {
 		r.Ensure()
 		found, err := detect(r, i)
 		if err != nil {
@@ -63,6 +78,10 @@ func npmPlugin(name string) core.Plugin {
 		}
 		if found.OK {
 			return core.ApplyResult{OK: true, Details: found.Details}, nil
+		}
+		destination, err := managedDirectory(r, i, name)
+		if err != nil {
+			return core.ApplyResult{}, err
 		}
 		result, err := r.Run("npm", "--version")
 		if err != nil {
@@ -76,7 +95,6 @@ func npmPlugin(name string) core.Plugin {
 		if name == "yarn" && major >= 2 {
 			packageName = "@yarnpkg/cli-dist"
 		}
-		destination := managedDirectory(r, i, name)
 		relative, _ := filepath.Rel(destination, executable(r, destination))
 		err = InstallDirectory(r, destination, relative, func(stage string) (string, error) {
 			prefix := filepath.Join(stage, "prefix")

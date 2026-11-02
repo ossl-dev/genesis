@@ -158,16 +158,25 @@ func stringSlice(value any) ([]string, bool) {
 	return nil, false
 }
 func exists(path string) bool { _, err := os.Stat(path); return err == nil }
-func runtimeHome(r *core.Runtime) string {
+func checkedInstallDirectory(path, source string) (string, error) {
+	if path == "" || !filepath.IsAbs(path) {
+		return "", fmt.Errorf("%s must be a nonempty absolute directory", source)
+	}
+	return filepath.Clean(path), nil
+}
+func runtimeHome(r *core.Runtime) (string, error) {
 	key := "HOME"
 	if r.Platform == "windows" {
 		key = "USERPROFILE"
 	}
-	if v := r.Env.Get(key); v != "" {
-		return v
+	if home, exists := r.Env.Lookup(key); exists {
+		return checkedInstallDirectory(home, key)
 	}
-	home, _ := os.UserHomeDir()
-	return home
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("resolve installation home: %w", err)
+	}
+	return checkedInstallDirectory(home, "home directory")
 }
 func executableName(r *core.Runtime, name string) string {
 	if r.Platform == "windows" {
@@ -175,9 +184,14 @@ func executableName(r *core.Runtime, name string) string {
 	}
 	return name
 }
-func managedDirectory(r *core.Runtime, i core.Instance, name string) string {
-	if s := optionString(i.Options, "install_dir"); s != "" {
-		return s
+func managedDirectory(r *core.Runtime, i core.Instance, name string) (string, error) {
+	if value, exists := i.Options["install_dir"]; exists {
+		directory, _ := value.(string)
+		return checkedInstallDirectory(directory, "install_dir")
 	}
-	return filepath.Join(runtimeHome(r), ".genesis", name)
+	home, err := runtimeHome(r)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(home, ".genesis", name), nil
 }

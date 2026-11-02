@@ -149,3 +149,28 @@ func TestSnapshotReturnedMapsIndependent(t *testing.T) {
 		t.Fatal("snapshot aliases internal cache")
 	}
 }
+func TestSnapshotGenesisHomeOverride(t *testing.T) {
+	manager, _ := NewEnvironmentCacheManager(CacheConfig{})
+	entry, err := manager.CacheEnvironment("test", Config{}, "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	override := filepath.Join(t.TempDir(), "snapshot-home")
+	t.Setenv("GENESIS_HOME", override)
+	key := "HOME"
+	if runtime.GOOS == "windows" {
+		key = "USERPROFILE"
+	}
+	t.Setenv(key, "")
+	snapshot, err := manager.CreateSnapshot(entry.ID, "snapshot", "")
+	if err != nil || snapshot.State.Filesystem.Directories[0] != override {
+		t.Fatal(snapshot, err)
+	}
+	if _, err := ResolveGenesisHome(); err == nil {
+		t.Fatal("snapshot override changed native home resolution")
+	}
+	t.Setenv("GENESIS_HOME", "relative")
+	if _, err := manager.CreateSnapshot(entry.ID, "snapshot", ""); err == nil {
+		t.Fatal("relative snapshot home accepted")
+	}
+}

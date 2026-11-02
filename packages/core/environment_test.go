@@ -142,6 +142,7 @@ func TestRepositoryCloneError(t *testing.T) {
 	}
 }
 func TestGenesisHomeRejectsMissingAndRelativeHome(t *testing.T) {
+	t.Setenv("GENESIS_HOME", "")
 	key := "HOME"
 	if runtime.GOOS == "windows" {
 		key = "USERPROFILE"

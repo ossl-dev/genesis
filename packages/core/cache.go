@@ -212,7 +212,7 @@ func (m *EnvironmentCacheManager) CreateSnapshot(environmentID, name, descriptio
 	if err != nil {
 		return EnvironmentSnapshot{}, err
 	}
-	home, err := ResolveGenesisHome()
+	home, err := resolveSnapshotHome()
 	if err != nil {
 		return EnvironmentSnapshot{}, err
 	}
@@ -394,4 +394,14 @@ func cloneSnapshot(snapshot EnvironmentSnapshot) (EnvironmentSnapshot, error) {
 	var result EnvironmentSnapshot
 	err = json.Unmarshal(data, &result)
 	return result, err
+}
+
+func resolveSnapshotHome() (string, error) {
+	if override := os.Getenv("GENESIS_HOME"); override != "" {
+		if !filepath.IsAbs(override) {
+			return "", fmt.Errorf("snapshot GENESIS_HOME must be absolute")
+		}
+		return override, nil
+	}
+	return ResolveGenesisHome()
 }

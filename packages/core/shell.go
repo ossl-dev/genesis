@@ -47,9 +47,16 @@ func RunCommand(ctx context.Context, command string, args []string, options Comm
 	if err := ctx.Err(); err != nil {
 		return CommandResult{Code: 1}, err
 	}
+	if options.Cwd != "" {
+		directory, err := filepath.Abs(options.Cwd)
+		if err != nil {
+			return CommandResult{Code: 1, Stderr: fmt.Sprintf("working directory: %v", err)}, nil
+		}
+		options.Cwd = directory
+	}
 	// Resolve against the runtime PATH, not the parent's PATH. Later plugins rely on it.
 	if !strings.ContainsAny(command, "/\\") && options.Env != nil {
-		if found := lookPath(command, options.Env); found != "" {
+		if found := lookPath(command, options.Env, options.Cwd); found != "" {
 			command = found
 		} else {
 			return CommandResult{Code: 1, Stderr: fmt.Sprintf("command %s: %v", command, exec.ErrNotFound)}, nil
@@ -104,7 +111,7 @@ func RunCommand(ctx context.Context, command string, args []string, options Comm
 	result.Stderr = strings.TrimSpace(result.Stderr + "\n" + fmt.Sprintf("command %s: %v", command, err))
 	return result, nil
 }
-func lookPath(command string, env map[string]string) string {
+func lookPath(command string, env map[string]string, cwd string) string {
 	p := env["PATH"]
 	if runtime.GOOS == "windows" {
 		for k, v := range env {
@@ -120,6 +127,14 @@ func lookPath(command string, env map[string]string) string {
 	for _, dir := range filepath.SplitList(p) {
 		if dir == "" {
 			continue
+		}
+		if !filepath.IsAbs(dir) {
+			dir = filepath.Join(cwd, dir)
+			absolute, err := filepath.Abs(dir)
+			if err != nil {
+				continue
+			}
+			dir = absolute
 		}
 		for _, ext := range extensions {
 			candidate := filepath.Join(dir, command+ext)

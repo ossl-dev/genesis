@@ -80,3 +80,55 @@ func TestCommandStdinAndOutputLimit(t *testing.T) {
 		t.Fatal("negative output limit accepted")
 	}
 }
+
+func TestCommandResolvesRelativeRuntimePathFromWorkingDirectory(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("fixture uses POSIX executable; native batch fixture covers Windows")
+	}
+	directory := filepath.Join(t.TempDir(), "project space")
+	if err := os.MkdirAll(filepath.Join(directory, "bin"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	executable := filepath.Join(directory, "bin", "runtime-relative-tool")
+	if err := os.WriteFile(executable, []byte("#!/bin/sh\nprintf '%s' \"$VALUE\""), 0755); err != nil {
+		t.Fatal(err)
+	}
+	processDirectory, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	relativeDirectory, err := filepath.Rel(processDirectory, directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, cwd := range []string{directory, relativeDirectory} {
+		result, err := RunCommand(context.Background(), "runtime-relative-tool", nil, CommandOptions{Cwd: cwd, Env: map[string]string{"PATH": "./bin", "VALUE": "child cwd"}})
+		if err != nil || result.Code != 0 || result.Stdout != "child cwd" {
+			t.Fatalf("cwd %q: %+v %v", cwd, result, err)
+		}
+	}
+	result, err := RunCommand(context.Background(), filepath.Join(".", "bin", "runtime-relative-tool"), nil, CommandOptions{Cwd: relativeDirectory, Env: map[string]string{"PATH": "/missing", "VALUE": "explicit path"}})
+	if err != nil || result.Code != 0 || result.Stdout != "explicit path" {
+		t.Fatalf("explicit relative path: %+v %v", result, err)
+	}
+}
+func TestCommandExplicitCurrentDirectoryPathAndEmptyEntries(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("fixture uses POSIX executable")
+	}
+	directory := t.TempDir()
+	executable := filepath.Join(directory, "runtime-local-tool")
+	if err := os.WriteFile(executable, []byte("#!/bin/sh\nprintf selected"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	result, err := RunCommand(context.Background(), "runtime-local-tool", nil, CommandOptions{Cwd: directory, Env: map[string]string{"PATH": "."}})
+	if err != nil || result.Code != 0 || result.Stdout != "selected" {
+		t.Fatalf("explicit dot PATH: %+v %v", result, err)
+	}
+	for _, path := range []string{"", string(os.PathListSeparator), string(os.PathListSeparator) + filepath.Join(directory, "missing")} {
+		result, err = RunCommand(context.Background(), "runtime-local-tool", nil, CommandOptions{Cwd: directory, Env: map[string]string{"PATH": path}})
+		if err != nil || result.Code == 0 {
+			t.Fatalf("empty PATH entry searched working directory: %+v %v", result, err)
+		}
+	}
+}

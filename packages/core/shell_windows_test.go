@@ -45,3 +45,24 @@ func TestWindowsEnvironmentKeysCaseInsensitive(t *testing.T) {
 		t.Fatal("PATH duplicates", env.Snapshot())
 	}
 }
+
+func TestWindowsRelativeBatchRuntimePath(t *testing.T) {
+	directory := filepath.Join(t.TempDir(), "project space")
+	if err := os.MkdirAll(filepath.Join(directory, "bin"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	script := filepath.Join(directory, "bin", "runtime-relative-tool.cmd")
+	if err := os.WriteFile(script, []byte("@echo off\r\necho relative selected\r\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	environment := NewEnvironment(nil).Snapshot()
+	environment["PATH"] = "./bin"
+	result, err := RunCommand(context.Background(), "runtime-relative-tool", nil, CommandOptions{Cwd: directory, Env: environment})
+	if err != nil || result.Code != 0 || result.Stdout != "relative selected" {
+		t.Fatal(result, err)
+	}
+	result, err = RunCommand(context.Background(), filepath.Join(".", "bin", "runtime-relative-tool.cmd"), nil, CommandOptions{Cwd: directory, Env: environment})
+	if err != nil || result.Code != 0 || result.Stdout != "relative selected" {
+		t.Fatal(result, err)
+	}
+}

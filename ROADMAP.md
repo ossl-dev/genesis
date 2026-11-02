@@ -82,7 +82,7 @@ Make existing stuff faster, safer, more portable.
 
 ### Execution
 
-- [ ] Make `ParallelExecutionEngine` configurable — max concurrency, resource thresholds, timeout per task
+- [ ] Extend execution controls — CLI max concurrency (`--parallel`) and overall deadline (`--timeout`) are implemented; resource thresholds and per-plugin timeout policy remain
 - [ ] Add task progress reporting — show what's running, what's done, what failed
 - [x] Add dry-run mode that shows what would happen without executing anything
 - [x] Export execution plan as JSON for CI tooling to consume

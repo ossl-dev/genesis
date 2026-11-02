@@ -27,6 +27,7 @@ type cliOptions struct {
 	dry, json, cloud, local  bool
 	format, token, url, name string
 	workers                  int
+	timeout                  time.Duration
 }
 
 func Run(ctx context.Context, args []string, cwd string, in io.Reader, out, errOut io.Writer) error {
@@ -45,6 +46,7 @@ func Run(ctx context.Context, args []string, cwd string, in io.Reader, out, errO
 	switch command {
 	case "apply", "doctor", "diff", "validate":
 		fs.StringVar(&opts.config, "config", "", "Path to configuration")
+		fs.DurationVar(&opts.timeout, "timeout", 0, "Deadline for configuration and environment operations (e.g. 10m)")
 		if command == "apply" {
 			fs.BoolVar(&opts.dry, "dry-run", false, "Plan without provisioning")
 			fs.BoolVar(&opts.cloud, "cloud", false, "Cloud environment (unavailable)")
@@ -110,6 +112,18 @@ func Run(ctx context.Context, args []string, cwd string, in io.Reader, out, errO
 	if command == "apply" && opts.workers < 1 {
 		return errors.New("--parallel must be a positive integer")
 	}
+
+	if opts.timeout < 0 {
+		return errors.New("--timeout must be nonnegative")
+	}
+	if opts.timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, opts.timeout)
+		defer cancel()
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if os.Getenv("GENESIS_DEBUG") != "" && !opts.json {
 		fmt.Fprintf(errOut, "genesis: loading config from %s\n", cwd)
 	}
@@ -121,8 +135,7 @@ func Run(ctx context.Context, args []string, cwd string, in io.Reader, out, errO
 	if err != nil {
 		return err
 	}
-	nodes, err = core.BuildPluginGraph(nodes)
-	if err != nil {
+	if err := ctx.Err(); err != nil {
 		return err
 	}
 	logger := log.New(errOut, "genesis: ", 0)
@@ -142,6 +155,9 @@ func Run(ctx context.Context, args []string, cwd string, in io.Reader, out, errO
 		if opts.dry {
 			plan, err := core.CreateEnvironmentPlan(config, nodes)
 			if err != nil {
+				return err
+			}
+			if err := ctx.Err(); err != nil {
 				return err
 			}
 			if opts.json {

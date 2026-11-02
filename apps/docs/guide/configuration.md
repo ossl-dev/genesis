@@ -103,3 +103,15 @@ Dry-run invokes no provisioning lifecycle hooks. Loading Go configs and external
 plugin metadata/option validation executes configured programs; trust those
 sources. JSON is an action plan, not proof a host needs changes. Apply JSON
 requires dry-run; diagnostics/diff/validate support their own JSON output.
+
+## Deadlines
+
+`apply`, `doctor`, `diff`, and `validate` accept `--timeout 15m` (or Go duration
+units such as `30s`). The default is no overall deadline. The deadline covers
+config programs, plugin loading, prerequisites, scripts, repositories, and
+installers. Context cancellation stops active commands/downloads and prevents
+later actions. Completed system/package changes are retained.
+
+```sh
+genesis apply --parallel 4 --timeout 15m
+```

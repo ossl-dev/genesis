@@ -10,6 +10,9 @@ noninteractive use and preserves existing files.
 
 `apply --config path.yml --dry-run --json` exports a plan without provisioning.
 `apply --parallel 4` bounds independent plugin execution by available CPUs.
+`--timeout 15m` sets a deadline for config loading and environment operations;
+apply, doctor, diff, and validate accept it. Cancellation stops active child
+commands and downloads; completed host changes are not rolled back.
 Inspection commands accept `--config` and `--json`. Failed apply, validation,
 and diagnostics exit nonzero. Cloud apply fails explicitly; login only stores
 private local token metadata. `list --format json --cloud` keeps warnings on

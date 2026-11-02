@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 )
 
 func runTest(t *testing.T, args ...string) (string, string, error) {
@@ -219,5 +221,40 @@ func TestMetadataLimits(t *testing.T) {
 	file.Close()
 	if _, err = readMetadata(path); err == nil {
 		t.Fatal("oversize metadata accepted")
+	}
+}
+
+func TestWorkflowDeadline(t *testing.T) {
+	cwd := t.TempDir()
+	command := "sleep 10"
+	if runtime.GOOS == "windows" {
+		command = "ping -n 12 127.0.0.1 >NUL"
+	}
+	config := "scripts:\n  - name: wait\n    command: " + command + "\n  - name: forbidden\n    command: echo late > forbidden\n"
+	if err := os.WriteFile(filepath.Join(cwd, "genesis.config.yaml"), []byte(config), 0644); err != nil {
+		t.Fatal(err)
+	}
+	start := time.Now()
+	_, _, err := runAt(t, cwd, "apply", "--timeout", "150ms")
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("lost deadline: %v", err)
+	}
+	if time.Since(start) > 6*time.Second {
+		t.Fatal("deadline failed to stop child")
+	}
+	if _, err := os.Stat(filepath.Join(cwd, "forbidden")); !os.IsNotExist(err) {
+		t.Fatalf("continued after deadline: %v", err)
+	}
+	if _, _, err = runAt(t, cwd, "apply", "--timeout=-1s"); err == nil {
+		t.Fatal("negative deadline accepted")
+	}
+}
+func TestCanceledWorkflowDoesNotLoadConfig(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	var out, errs bytes.Buffer
+	err := Run(ctx, []string{"apply", "--dry-run"}, t.TempDir(), strings.NewReader(""), &out, &errs)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("%v", err)
 	}
 }

@@ -47,7 +47,8 @@ From the environment directory, run the built binary by its absolute path:
 `apply --config path.yml` selects an explicit config. `--parallel 4` enables
 bounded goroutines for independent plugins; the default remains sequential.
 Dependencies, overlapping installation paths, and shared ports constrain
-parallelism. System package prerequisites are deduplicated before plugin apply.
+parallelism. `--timeout 15m` bounds configuration and environment work, including
+scripts and downloads; completed changes are retained on cancellation. System package prerequisites are deduplicated before plugin apply.
 Failed dependencies block dependent plugins. Scripts and repositories run in
 configured order; repository reapply preserves existing work and checks origin,
 branch, and repository root before accepting an existing destination.

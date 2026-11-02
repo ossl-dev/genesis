@@ -18,6 +18,12 @@ to later commands in the same execution. Future shells need their own PATH setup
 Genesis does not modify every shell profile. Numeric versions match components,
 so 3.1 does not match 3.11. JDK detection requires both java and javac.
 
+## Stalled workflows
+
+Use `genesis apply --timeout 15m` to bound the whole workflow, or interrupt with
+Ctrl-C. Deadlines propagate through config programs, installers, and child
+commands. Completed host changes remain; inspect reported state before retrying.
+
 ## Failed installers
 
 Check published release availability, target architecture/libc, checksum metadata,

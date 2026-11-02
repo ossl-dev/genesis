@@ -185,7 +185,7 @@ func (e *ParallelExecutionEngine) ExecuteParallel(plan *ParallelExecutionPlan, r
 		e.history = append(e.history, copy)
 	}
 	e.mu.Unlock()
-	return results, nil
+	return results, r.Context.Err()
 }
 func (e *ParallelExecutionEngine) executeNode(n Node, r *Runtime, dependents, failed []string) (result ExecutionResult) {
 	start := time.Now()

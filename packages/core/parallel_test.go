@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -168,5 +169,17 @@ func TestEnvironmentZeroValue(t *testing.T) {
 	e.PrependPath("path")
 	if e.Get("value") != "yes" {
 		t.Fatal(e.Snapshot())
+	}
+}
+func TestLastParallelPhaseCancellationPreservesContextError(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	node := testNode("last")
+	node.Plugin.Apply = func(*Runtime, Instance) (ApplyResult, error) { cancel(); return ApplyResult{OK: true}, nil }
+	engine, _ := NewParallelExecutionEngine(2)
+	plan, _ := engine.CreateExecutionPlan([]Node{node})
+	results, err := engine.ExecuteParallel(plan, &Runtime{Context: ctx})
+	if !errors.Is(err, context.Canceled) || len(results) != 1 {
+		t.Fatal(results, err)
 	}
 }

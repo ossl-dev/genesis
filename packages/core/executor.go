@@ -200,5 +200,5 @@ func RunApply(nodes []Node, r *Runtime) ([]ApplySummary, error) {
 		failed[n.Instance.ID] = !out.OK
 		results = append(results, ApplySummary{ID: n.Instance.ID, Category: n.Instance.Category, OK: out.OK, DidChange: out.DidChange, Details: out.Details})
 	}
-	return results, nil
+	return results, r.Context.Err()
 }

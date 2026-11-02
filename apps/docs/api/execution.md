@@ -33,7 +33,7 @@ A phase becomes sequential when options overlap paths in `path`, `install_dir`, 
 
 These checks cannot infer symlink aliases, package-manager locks, shell-profile mutations, or undeclared resources. Keep plugins sharing those resources sequential. The engine does not enforce RAM/CPU thresholds.
 
-`Runtime.Context` propagates cancellation into hooks and child commands. Plugins must honor it. Unix command cancellation kills the child process group; Windows cancellation requests tree termination and kills the child. `CommandOptions.Timeout` bounds individual commands. Worker goroutines finish before execution returns.
+`Runtime.Context` propagates cancellation into hooks and child commands. Plugins must honor it. Unix command cancellation kills the child process group; Windows cancellation requests tree termination and kills the child. `CommandOptions.Timeout` bounds individual commands. Worker goroutines finish before execution returns. Cancellation returns the original context error even in the final task or plugin phase, so callers can use `errors.Is` with `context.Canceled` or `context.DeadlineExceeded`. Completed plugin results remain available alongside that error.
 
 ## Metrics
 

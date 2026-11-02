@@ -165,3 +165,13 @@ func TestPrerequisitesRejectInvalidGraphBeforeHooks(t *testing.T) {
 		t.Fatal("missing dependency accepted")
 	}
 }
+func TestLastSequentialPluginCancellationPreservesContextError(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	node := testNode("last")
+	node.Plugin.Apply = func(*Runtime, Instance) (ApplyResult, error) { cancel(); return ApplyResult{OK: true}, nil }
+	results, err := RunApply([]Node{node}, &Runtime{Context: ctx})
+	if !errors.Is(err, context.Canceled) || len(results) != 1 {
+		t.Fatal(results, err)
+	}
+}

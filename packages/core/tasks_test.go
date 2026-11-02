@@ -179,3 +179,17 @@ func TestRuntimeTaskLoggerAndReentrantStatus(t *testing.T) {
 type taskLogWriter struct{ write func([]byte) (int, error) }
 
 func (w taskLogWriter) Write(p []byte) (int, error) { return w.write(p) }
+func TestLastTaskCancellationPreservesContextError(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	registry := NewTaskRegistry()
+	_ = registry.Register(Task{ID: "last", Execute: func(context.Context) (TaskResult, error) { cancel(); return TaskResult{OK: true}, nil }})
+	results, err := registry.ExecuteAll(ctx)
+	if !errors.Is(err, context.Canceled) || results["last"].OK || registry.Status("last") != "failed" {
+		t.Fatal(results, err, registry.Status("last"))
+	}
+	empty := NewTaskRegistry()
+	if _, err := empty.ExecuteAll(ctx); !errors.Is(err, context.Canceled) {
+		t.Fatal("empty registry ignored cancellation", err)
+	}
+}

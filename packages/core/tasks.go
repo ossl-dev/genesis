@@ -150,6 +150,9 @@ func (t *TaskRegistry) ExecuteAll(ctx context.Context) (map[string]TaskResult, e
 		return nil, err
 	}
 	results := map[string]TaskResult{}
+	if err := ctx.Err(); err != nil {
+		return results, err
+	}
 	if len(order) == 0 {
 		t.debugf("No tasks to execute")
 		return results, nil
@@ -196,6 +199,9 @@ func (t *TaskRegistry) ExecuteAll(ctx context.Context) (map[string]TaskResult, e
 				result = TaskResult{Error: err.Error()}
 			}
 		}
+		if err := ctx.Err(); err != nil {
+			result = TaskResult{Error: err.Error()}
+		}
 		t.mu.Lock()
 		s.result = &result
 		if result.OK {
@@ -216,6 +222,9 @@ func (t *TaskRegistry) ExecuteAll(ctx context.Context) (map[string]TaskResult, e
 				reason = "failed"
 			}
 			t.logf("Task %s failed: %s", id, reason)
+		}
+		if err := ctx.Err(); err != nil {
+			return results, err
 		}
 	}
 	return results, nil

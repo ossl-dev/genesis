@@ -19,4 +19,20 @@ Node, Go, Java, Bun, and Deno use checksummed staged archives on macOS/Linux/Win
 
 Configured environment values only affect Genesis and child commands. Shell profile changes are generally printed as instructions rather than persisted. System-wide rollback and project isolation are not implemented; staged runtime replacement has recovery.
 
-The installer smoke workflow downloads and applies Node, Go, Java, Bun, Deno, pnpm, Yarn Classic, modern Yarn, and Git in temporary directories on macOS/Ubuntu/Windows CI. It validates executables and verifies that a new-context second apply is unchanged. Successful archive/npm installs and a Git source build have been observed locally on macOS ARM64. Linux container jobs verify Git, compilers, and mapped build libraries on Debian/Fedora/Arch/Alpine. Debian/Fedora also install pinned Docker packages, check optional Compose, and verify failure without a daemon. These Docker package tests stub systemctl; daemon startup still needs disposable systemd hosts. Local ARM64 Debian/Fedora/Alpine checks and an emulated x64 Arch check passed; the latter disabled pacman syscall sandboxing for emulation only. Native CI outcomes and Windows MinGit execution still need observation. All installer jobs require network access.
+The Go installer smoke workflow installs Node, Go, Java, Bun, Deno, pnpm,
+Yarn Classic, modern Yarn, and Git in temporary prefixes on macOS, Ubuntu, and
+Windows CI. All nine fresh installs, executable validation, and fresh-context
+unchanged reapply passed locally on macOS ARM64 after the Go port.
+
+Local race tests and six-platform cross builds passed. Cross-compilation does
+not prove native Windows execution. Native Windows MinGit/shim execution and
+remote CI results still need observation. Homebrew bootstrap and real Linux
+systemd daemon startup still need disposable native hosts.
+
+Go Linux container fixtures cover Debian, Fedora, Arch, and Alpine shared
+packages; Debian/Fedora also check real Docker release pins and Compose-only
+installation. Docker package tests intentionally stub systemctl, so they do not
+prove daemon startup. These Go container checks could not run locally during
+migration because the existing Docker daemon did not answer bounded probes.
+Earlier pre-migration distro checks are historical evidence, not Go validation.
+All installer jobs require network access.

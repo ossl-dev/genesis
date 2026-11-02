@@ -1,16 +1,15 @@
-# Standalone Bootstrap Design
+# Standalone distribution
 
-Status: proposal. The CLI currently runs from built JavaScript with Bun or Node. It does not ship a published standalone binary or bootstrap its own runtime.
+Genesis now builds as a Go binary. It needs no bootstrap runtime or workspace
+orchestrator. `go run ./scripts/release` produces six binaries for macOS, Linux,
+and Windows on amd64/arm64, with CGO disabled.
 
-The intended distribution is a per-platform executable that can run on a new machine and provision development tools from a config. Before implementing it, resolve:
+YAML configurations need only that binary. Executable Go configurations require
+an installed Go compiler and emit one JSON configuration on stdout. External
+plugins are ordinary platform executables using the versioned JSON protocol;
+compiled Go plugins can also be registered through the library API.
 
-- Bundling built-in plugins despite dynamic module imports.
-- Supporting trusted custom modules and TypeScript configs without assuming a global runtime.
-- Building and testing one target per OS/architecture, including ARM64.
-- Packaging installers without embedding credentials or environment-specific paths.
-- Verifying downloads and publishing release assets through a tested CI pipeline.
-- Making partial installation failures recoverable before claiming zero-setup reliability.
-
-The existing multi-target standalone build scripts are experimental; they are not a release pipeline. Homebrew/winget/apt distribution and self-bootstrap remain roadmap items.
-
-See [ROADMAP.md](ROADMAP.md) and the [installation guide](apps/docs/guide/installation.md) for the supported workflow.
+Release automation uploads generated binaries for version tags. Package-manager
+manifests, signed/notarized releases, automatic updates, and a public install
+endpoint remain roadmap work. Runtime installation plugins provision user tools
+independently of Genesis's own executable.

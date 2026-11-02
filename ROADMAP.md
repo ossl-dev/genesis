@@ -9,7 +9,7 @@ Things to build, fix, and improve. Checked boxes mean implemented in this reposi
 3. Observe installer CI on macOS/Ubuntu/Windows and Linux distribution containers; finish Windows Python installation.
 4. Finish local cache persistence/restore before cloud sync or standalone distribution.
 
-Recent work adds trustworthy config/failure handling, validated lifecycle hooks, a tested parallel core API, and real repository/script apply with dry-run plans. CLI plugin execution remains sequential.
+Go migration preserves all eleven plugins, validated lifecycle hooks, task graphs, repository/script apply, cache metadata APIs, and CLI commands. Genesis builds as one standalone binary. CLI defaults to sequential execution; `apply --parallel N` enables bounded goroutines. See [migration evidence](MIGRATION.md).
 
 **Want to contribute?** Pick an unchecked box, open an issue saying you're on it, send a PR. Keep one item per PR. If something's unclear, open an issue and ask — don't guess.
 
@@ -23,7 +23,7 @@ Stuff that's built but not fully finished, tested, or released.
 
 Unit tests cover configs, plugins, task scheduling, and CLI behavior. Local integration tests exercise scripts and Git repositories in temporary directories.
 
-- [x] Add unit tests for config loader — YAML parsing, TS config loading, validation edge cases
+- [x] Add unit tests for config loader — YAML parsing, executable Go config loading, validation edge cases
 - [x] Add unit tests for task registry — dedup, topological sort, priority ordering
 - [x] Add unit tests for plugin executor — 3-phase lifecycle, error propagation
 - [x] Add unit tests for each plugin's `detect`, `apply`, `validate` methods (mock the shell)
@@ -34,18 +34,18 @@ Unit tests cover configs, plugins, task scheduling, and CLI behavior. Local inte
 ### CI / infra
 
 - [x] Wire up GitHub Actions — lint, build, test on push/PR
-- [x] Add Bun test runs across three OS; Node versions are not separately pinned in CI
+- [x] Run Go tests and the race detector across three operating systems in CI
 - [x] Add CI badge to README
 - [x] Add per-platform CI jobs (macOS, Ubuntu, Windows runners)
-- [x] Add `turbo run lint` to CI — currently TypeScript checks, not ESLint rules
-- [x] Add advisory `bun audit` job (failures do not block CI)
+- [x] Run `go vet` and formatting checks in CI
+- [x] Run Go vulnerability scanning in CI
 
 ### Finish stubs
 
 Code exists but doesn't actually do the thing yet. Finish it.
 
-- [x] **ParallelExecutionEngine** — preserve executable plugin nodes, schedule dependency layers with bounded workers, clamp concurrency to available CPUs, serialize overlapping configured paths/ports, and propagate failures. Resource checks are conservative heuristics; CLI apply remains sequential.
-- [ ] **EnvironmentCacheManager** — metadata/compression prototype exists; filesystem/network restore and durable reload are unfinished, and "remote" sync only writes local JSON. Implement persistence, safe artifact restore, and round-trip tests.
+- [x] **ParallelExecutionEngine** — preserve executable plugin nodes, schedule dependency layers with bounded workers, clamp concurrency to available CPUs, serialize overlapping configured paths/ports, and propagate failures. Resource checks are conservative heuristics; CLI apply defaults to sequential; `--parallel N` enables bounded concurrency.
+- [ ] **EnvironmentCacheManager** — Go metadata/compression/import/export/snapshot APIs exist; explicit private metadata saves are available. Filesystem/network restore, durable reload, encryption, and remote sync remain unfinished and return explicit errors. Implement safe artifact restore and round-trip tests.
 - [ ] **genesis login** — token metadata can be saved locally, but backend verification and OAuth are missing.
 - [ ] **genesis list --cloud** — reports an unavailable backend. Wire to a real service without contaminating JSON output.
 - [ ] **genesis apply <env-id>** — fails explicitly. Implement authenticated environment resolution and apply.
@@ -165,8 +165,8 @@ Make Genesis feel like a mature tool.
 
 ### Standalone binary
 
-- [ ] Ship `genesis` as a single binary (Bun compile or `pkg`), no Node/Bun required
-- [ ] Self-bootstrapping — the binary should install its own runtime if needed
+- [x] Build `genesis` as a standalone Go binary, with six-platform cross builds and version-tag release automation
+- [x] Remove bootstrap runtime requirements — compiled Genesis runs directly
 - [ ] Homebrew formula / winget manifest / apt repo for distribution
 
 ### IDE integration
@@ -217,7 +217,7 @@ Not triaged into phases. Fix anytime.
 - [x] Declare built-in plugins as a CLI dependency and resolve them from the consumer import scope; test every packaged built-in using a real external config dry run.
 - [ ] **No config file caching**: every `genesis apply` re-parses and re-validates the config. Add hash-based skip when nothing changed.
 - [ ] **`genesis diff` output**: currently reports plugin detection status. Add desired/current version and package changes.
-- [x] **Windows test paths**: real integration tests use native paths; mocked config fixtures use portable virtual paths. The old `download.ts` utility was removed.
+- [x] **Windows test paths**: real integration tests use native paths; mocked config fixtures use portable virtual paths. The old download utility was removed.
 
 ---
 

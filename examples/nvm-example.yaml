@@ -10,5 +10,5 @@ tools:
   # Or explicitly disable NVM and use standalone installation
   # - type: node
   #   version: "20"
-  #   use_nvm: false  # Will attempt standalone installation (not yet implemented)
+  #   use_nvm: false  # Use the verified standalone archive installer
 

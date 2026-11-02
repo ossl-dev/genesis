@@ -10,41 +10,55 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-jobs:
-  lint:
-    name: Lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v1
-        with:
-          bun-version: '1.3.2'
-      - run: bun install --frozen-lockfile
-      - run: bun run lint
+permissions:
+  contents: read
 
+jobs:
   test:
-    name: Test
+    name: Go on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v1
+      - uses: actions/setup-go@v5
         with:
-          bun-version: '1.3.2'
-      - run: bun install --frozen-lockfile
-      - run: bun run build
-      - run: bun run test
+          go-version: stable
+          cache: true
+      - run: go mod download
+      - run: go vet ./...
+      - run: go test -race ./...
+      - run: go build ./...
+      - run: go run ./apps/docs -output dist/docs
+      - run: go run ./scripts/check
 
-  security:
-    name: Security Audit
+  release-build:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v1
+      - uses: actions/setup-go@v5
         with:
-          bun-version: '1.3.2'
-      - run: bun audit
-        continue-on-error: true
+          go-version: stable
+          cache: true
+      - run: go run ./scripts/release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: genesis-binaries
+          path: |
+            dist/genesis-*
+            dist/SHA256SUMS
+
+  security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache: true
+      - run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...

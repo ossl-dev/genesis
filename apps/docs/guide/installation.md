@@ -1,25 +1,27 @@
 # Installation
 
-The current supported path is building the monorepo from source with Bun. Standalone binary distribution and an install endpoint are roadmap work.
+Build with Go 1.23 or newer; use a supported Go release for production builds.
 
-```bash
+```sh
 git clone https://github.com/ossl-dev/genesis.git
 cd genesis
-bun install --frozen-lockfile
-bun run build
-bun apps/cli/dist/index.js --help
+go build -trimpath -o bin/genesis ./apps/cli
+./bin/genesis --help
 ```
 
-To use Genesis in another project, run the built CLI by absolute path while keeping that project as the working directory:
+The binary runs independently of the source tree and Go compiler. Add its
+location to PATH, then use it from the environment repository. Windows builds
+can use `go build -o bin/genesis.exe ./apps/cli`.
 
-```bash
-cd /path/to/project
-bun /path/to/genesis/apps/cli/dist/index.js init
-bun /path/to/genesis/apps/cli/dist/index.js apply --dry-run
+```sh
+genesis init --format yaml
+genesis apply --dry-run
+genesis apply
+genesis doctor
 ```
 
-The CLI's JavaScript entrypoint has a Node shebang. YAML configs can run under Node. TypeScript configs are imported through the runtime's loader; use Bun unless you have configured Node TypeScript loading support.
-
-No Homebrew formula, winget manifest, apt repository, or published standalone release is supplied here. The existing standalone build scripts are experimental and do not establish a distribution pipeline.
-
-On macOS, include the Homebrew plugin to bootstrap shared brew tasks, or preinstall brew. On Debian/Ubuntu, system package tasks invoke sudo/APT. Linux tasks also select DNF/pacman/APK; Windows Python installation remains manual; archive runtimes and npm-prefix plugins support Windows targets. Check [Platform Support](/guide/platform-support).
+`go run ./scripts/release` cross-compiles macOS/Linux/Windows amd64 and arm64.
+Version-tag CI attaches these binaries to releases. Native tests and installer
+coverage are described under [platform support](/guide/platform-support).
+YAML is self-contained; `.go` configurations require Go at runtime. There is
+no maintained public install script or package-manager distribution yet.

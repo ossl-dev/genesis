@@ -1,22 +1,22 @@
-# @ossl/genesis-plugins
+# Genesis plugins
 
-Eleven built-in Genesis plugins: Node, Bun, Deno, pnpm, Yarn, Python, Go, Java, Git, Docker, and Homebrew. Import helper factories from the package root or individual subpaths.
+The Go package `github.com/ossl-dev/genesis/packages/plugins` contains eleven
+builtins and shared verified installers. `Load(config)` validates options and
+dependencies; `LoadWithResolver` adds custom plugin resolution.
 
-```typescript
-import { defineConfig } from "@ossl/genesis-core";
-import { node, git } from "@ossl/genesis-plugins";
-
-export default defineConfig({
-  tools: [node({ version: "22" }), git()],
-});
+```go
+nodes, err := plugins.Load(core.Config{Tools: []core.Instance{{
+    ID: "node", Category: "tool", Module: "node",
+    Options: map[string]any{"version": "22", "use_nvm": false},
+}}})
 ```
 
-Factories return plugin instances; `loadPlugins` loads their implementations and validates/defaults options. Global packages install after Node/Homebrew is ready. Requested runtimes already present on PATH skip system prerequisites.
+Use the [plugin reference](../../apps/docs/plugins/overview.md) for exact options
+and platform limits. Checksummed archives and npm prefixes use staged installs,
+verification before/after promotion, destination locks, and recovery on failure.
+Published metadata and release versions are validated before downloads. Package
+manager operations retain their native host effects and have no general rollback.
 
-See the [plugin overview](../../apps/docs/plugins/overview.md) for supported paths and the [lifecycle reference](../../apps/docs/plugins/lifecycle.md) for dependencies and hooks. Archive and npm-prefix installers support Windows targets; Python Windows installation remains manual. Shared Linux tasks select APT/DNF/pacman/APK. Git supports pinned Unix source builds and Windows MinGit archives. Staged installers recover failed replacements; system-wide rollback is not implemented.
-
-From the repository root: `bun run build`, `bun run lint`, `bun run test`.
-
-Pinned [Bun](../../apps/docs/plugins/bun.md) and [Deno](../../apps/docs/plugins/deno.md) archive plugins are also available as `@ossl/genesis-plugins/bun` and `@ossl/genesis-plugins/deno`.
-
-[pnpm](../../apps/docs/plugins/pnpm.md) and [Yarn](../../apps/docs/plugins/yarn.md) provision pinned package-manager versions after the configured Node plugin, using staged npm prefixes.
+Run `go test -race ./packages/plugins` from repository root. Real installer
+checks use `go run ./scripts/smoke installers`, temporary prefixes, and network
+access. Tests and native CI evidence are distinct from all-platform guarantees.

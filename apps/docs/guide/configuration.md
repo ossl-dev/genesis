@@ -1,8 +1,8 @@
 # Configuration
 
-Genesis discovers `genesis.config.ts` first, then `genesis.config.yaml` in the current directory. Select another file with `genesis apply --config ./configs/dev.yaml`; explicit paths accept `.ts`, `.yaml`, or `.yml` and resolve from the current directory.
-
-TypeScript configs execute through the host runtime's module loader. Use Bun for TypeScript configs; Node requires a version with TypeScript support or a suitable loader. Only load configs and plugins you trust.
+Genesis discovers `genesis.config.go`, `.yaml`, `.yml`, then `.json`, in that
+order. Use `--config path` to select another file. YAML and JSON require only
+the binary; Go configs execute trusted code through an installed Go compiler.
 
 ## YAML
 
@@ -10,82 +10,96 @@ TypeScript configs execute through the host runtime's module loader. Use Bun for
 tools:
   - type: node
     version: "22"
-    use_nvm: true
+    use_nvm: false
 languages:
   - type: python
     version: "3.11"
 env:
-  NODE_ENV: development
-  WORKSPACE: "${HOME}/projects"
+  WORKSPACE: "${HOME}/work"
 ```
 
-Built-in types are `node`, `python`, `go`, `java`, `git`, `docker`, and `homebrew`. YAML entries may also use the full plugin instance format for custom modules:
+Builtin `type` entries supply ID, category, and module. Full entries support
+custom instance IDs and executable plugins:
 
 ```yaml
 tools:
-  - id: team-tool
+  - id: project-node
     category: tool
-    module: team-genesis-plugin
+    module: node
     options:
-      version: "1"
+      version: "22"
+      use_nvm: false
+  - id: project-pnpm
+    category: tool
+    module: pnpm
+    options:
+      version: "10.19.0"
+      node_plugin: project-node
 ```
 
-Both entry formats can appear in the same list. Each plugin ID must be unique across `tools`, `sdks`, and `languages`; duplicate IDs are rejected rather than silently dropping one instance.
+Builtin module names accept `node`, `builtin:node`, and existing qualified
+builtin aliases. Categories are tool, sdk, language, library, and framework.
+IDs must be unique across all sections. Dependencies reference configured IDs.
+Unknown builtin options and malformed values fail before provisioning.
 
-## TypeScript
+`${NAME}` references expand recursively from the process environment. Unset
+variables fail with field/file context. Config `env` entries merge into command
+environments; they do not change the caller's shell or supply interpolation
+values to other config entries. JSON plans show names, not secret values.
 
-```typescript
-import { defineConfig } from "@ossl/genesis-core";
-import { node, python } from "@ossl/genesis-plugins";
+## Go configs
 
-export default defineConfig({
-  tools: [node({ version: "22", use_nvm: true })],
-  languages: [python({ version: "3.11" })],
-  env: { NODE_ENV: "development" },
-});
+A Go config is a standalone program that prints exactly one JSON configuration.
+It can compute values, read files, or use imported Go packages. Keep diagnostics
+on stderr. For a dependency-free example:
+
+```go
+//go:build ignore
+
+package main
+
+import "fmt"
+
+func main() {
+    fmt.Println(`{"tools":[{"id":"git","category":"tool","module":"git"}]}`)
+}
 ```
 
-A default export or named `config` export is accepted. `defineConfig` supplies TypeScript types; loading the file performs runtime validation.
-
-## Environment references
-
-`${NAME}` in any string value is replaced with the invoking process's environment value. Missing variables stop loading and identify the affected field. References are expanded once; shell expressions and fallback syntax such as `${NAME:-value}` are not evaluated.
-
-The config's `env` values override inherited environment variables for plugins, repository commands, and scripts. They do not persist into your calling shell, and references do not resolve against other entries in the config's `env` section.
-
-## Validation
-
-All top-level sections are optional. Plugin instances require a nonempty `id`, `module`, and a category: `tool`, `sdk`, `language`, `library`, or `framework`.
-
-Repository specs use `url`, `folder` (or YAML `path`), and optional `branch`. Scripts use `name`, `command`, optional `description`, and optional `when: before | after`.
-
-Invalid input is reported with the config filename and field path, for example `tools.0.module: Invalid input: expected string, received number`. Unsupported plugin types and duplicate IDs fail before provisioning begins.
+Save as `genesis.config.go`. The build constraint excludes it from ordinary
+package builds; an explicit `go run genesis.config.go` still executes it.
+`genesis init --format go` generates this program shape. To use the typed
+`core.Config` API, initialize a normal Go module requiring Genesis and encode
+the configuration using `encoding/json`.
 
 ## Repositories and scripts
 
 ```yaml
 repositories:
-  - url: https://github.com/your-team/project.git
-    folder: ./project
+  - url: https://github.com/example/project.git
+    folder: project
     branch: main
 scripts:
   - name: prepare
     command: echo preparing
     when: before
-  - name: install-dependencies
-    command: cd project && npm install
-    when: after
+  - name: check
+    command: git --version
 ```
 
-`before` scripts run before plugin provisioning. Repositories clone after plugins succeed, then `after` scripts run. Omitting `when` means `after`. Script order within each group follows the config. Scripts execute on every apply through `sh` on Unix and `cmd.exe` on Windows, in the invoking working directory. Write commands that are safe to repeat.
+Repository `path` remains an alias for `folder`. Relative paths resolve against
+execution cwd. Existing destinations must be repository roots with matching
+origin and requested branch. Genesis does not reset, pull, or overwrite work.
+Scripts use `sh -c` on Unix and `cmd.exe` on Windows. Missing `when` means after.
+Order: before scripts, plugins, repositories, after scripts. Plugin failure skips
+repositories and after scripts.
 
-Existing repository destinations must be repository roots with the configured origin and, when specified, branch. Genesis preserves local edits and does not pull, reset, or switch branches. Mismatches fail rather than overwrite your files.
+## Preview
 
-```bash
-genesis apply --dry-run
-genesis apply --config ./configs/dev.yaml --dry-run --json
+```sh
+genesis apply --config configs/dev.yml --dry-run --json
 ```
 
-Dry-run loads and validates configs and plugins, then prints planned actions without calling provisioning lifecycle methods or shell commands. TypeScript configs and imported plugin modules can execute their own code during loading. JSON includes environment variable names, not values. It is an action plan, not a guarantee that each installer will change the machine. `--json` currently requires `--dry-run`.
-
-See [Plugin Overview](/plugins/overview) for plugin options and platform limitations.
+Dry-run invokes no provisioning lifecycle hooks. Loading Go configs and external
+plugin metadata/option validation executes configured programs; trust those
+sources. JSON is an action plan, not proof a host needs changes. Apply JSON
+requires dry-run; diagnostics/diff/validate support their own JSON output.

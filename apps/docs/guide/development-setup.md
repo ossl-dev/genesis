@@ -1,21 +1,27 @@
 # Development Setup
 
-```bash
+```sh
 git clone https://github.com/ossl-dev/genesis.git
 cd genesis
-bun install --frozen-lockfile
-bun run build
-bun run test
-bun run lint
+go mod download
+go test ./...
+go test -race ./...
+go vet ./...
+go build -o bin/genesis ./apps/cli
 ```
 
-The workspace uses Bun and Turborepo. Core must build before consumers can resolve its exported JavaScript/types. `bun run lint` currently runs TypeScript checks, not an ESLint ruleset. Tests use Vitest; installer unit tests mock shell commands, while environment integration tests run scripts and Git in temporary directories.
+One Go module retains the apps/packages structure. No generated package output
+is needed before tests. Source uses standard formatting (`gofmt`); `make check`
+runs vet, tests, and formatting checks. Archive tests extract real fixtures;
+command mocks cover installer permutations, while Git/scripts and cancellation
+also have real subprocess integration tests.
 
-```bash
-bun run docs:dev
-bun run docs:build
+```sh
+go run ./apps/docs -serve localhost:8080
+go run ./apps/docs -output dist/docs
+go run ./scripts/release
 ```
 
-Do not run real installer configs as routine tests on your development machine. Use mocks for command/architecture selection, and temporary directories for filesystem/repository/script behavior.
-
-See [Architecture](/guide/architecture) for package responsibilities and [Contributing](/guide/contributing) for the review workflow.
+Installer smoke: `go run ./scripts/smoke installers`. It uses disposable prefixes
+and published downloads. Package and Docker modes require disposable Linux root
+hosts with `GENESIS_DISPOSABLE_HOST=1`; never run them on a workstation.

@@ -6,7 +6,7 @@ The vision is a portable environment definition with plugin-based installers, us
 
 ## What works
 
-- YAML and TypeScript config loading, environment references, and load-time validation.
+- YAML and Go config loading, environment references, and load-time validation.
 - Eleven built-in plugins, with different installation limits by platform.
 - Deduplicated system prerequisites and dependency-ordered plugin lifecycle hooks.
 - Repository cloning that preserves existing worktrees, plus before/after scripts.

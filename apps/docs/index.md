@@ -1,25 +1,17 @@
----
-layout: home
-hero:
-  name: Genesis
-  text: Development setup from a config
-  tagline: Version your team's tools, repositories, and setup scripts together.
-  actions:
-    - theme: brand
-      text: Run from source
-      link: /guide/getting-started
-    - theme: alt
-      text: Current support
-      link: /guide/platform-support
-features:
-  - title: Declarative configuration
-    details: YAML and TypeScript configs, validated plugin options, and environment references.
-  - title: Shared prerequisites
-    details: System tasks are deduplicated across plugins and ordered by dependencies.
-  - title: Preview and verify
-    details: Dry-run plans, JSON export, and nonzero exits for failed apply or validation.
-  - title: Plugin lifecycle
-    details: Seven built-in plugins plus dependencies and hooks for custom implementations.
----
+# Genesis
 
-Genesis is an early-stage local provisioning tool. Cloud environments, cache restore, rollback, and distributed standalone binaries are unfinished. Platform support varies by plugin; see the [plugin reference](/plugins/overview).
+Development setup from a config. Version your team's tools, repositories,
+environment variables, and setup scripts together.
+
+- [Get started](/guide/getting-started): build one binary, preview, apply, verify.
+- [Platform support](/guide/platform-support): supported installers and known limits.
+- [Plugin reference](/plugins/overview): eleven builtins with strict options.
+- [Go API](/api/core): lifecycle, shared prerequisites, bounded parallel execution.
+
+Genesis is an early-stage local provisioning tool written in Go. YAML and Go
+configurations are validated before provisioning. Shared tasks deduplicate host
+prerequisites; dry runs export JSON plans; failed apply and validation exit nonzero.
+
+Cloud environments, cache restoration, and system-wide rollback remain unfinished.
+Documentation is built and served by Go with no browser scripting. Search is
+available when serving; static exports provide navigation and browser find.

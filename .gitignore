@@ -1,8 +1,7 @@
-node_modules
-dist
-.turbo
-bin
-bun.lockb
-.vscode
-**/.vitepress/dist
-**/.vitepress/cache
+/bin/
+/dist/
+/coverage.out
+*.test
+*.test.exe
+.DS_Store
+.vscode/

@@ -1,7 +1,10 @@
 # Plugins
 
-See [Plugin Overview](/plugins/overview) for the eleven implementations, installation paths, and current platform limits.
+YAML builtin `type` entries and full Go/YAML configuration share strict option
+validation. Configured IDs are unique; dependencies refer to IDs. Builtins load
+from the compiled registry. Custom plugins use Go registration or the portable
+executable protocol.
 
-YAML configs use built-in `type` entries; TypeScript configs use factory helpers. Both load-time paths validate/default plugin options. Configured IDs must be unique, and dependencies refer to those IDs.
-
-See [Configuration](/guide/configuration) for syntax and [Plugin Development](/guide/plugin-development) for custom modules.
+All eleven plugins are described in the [overview](/plugins/overview). Lifecycle
+and extension details: [plugin development](/guide/plugin-development),
+[lifecycle](/plugins/lifecycle), and [Plugin API](/api/plugin).

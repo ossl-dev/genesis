@@ -1,49 +1,46 @@
 # Plugin Development
 
-A plugin package exports a helper that creates a `GenesisPluginInstance` and a `createPlugin(instance)` implementation. The configured module must be resolvable by the runtime; absolute file URLs can be used for local JavaScript plugins.
+Use `core.Plugin` for compiled Go plugins. Hooks receive `*core.Runtime` and
+`core.Instance`; implement strict `ParseOptions` before any changes. Set
+`DependsOn` to configured instance IDs. `plugins.LoadWithResolver` resolves
+custom modules; library consumers can also create `core.Node` directly.
 
-```typescript
-import {
-  type GenesisPlugin,
-  type GenesisPluginInstance,
-  runCommand,
-} from "@ossl/genesis-core";
-
-interface Options { version: string }
-
-export function tool(options: Options): GenesisPluginInstance<Options> {
-  return { id: "my-tool", category: "tool", module: "my-genesis-plugin", options };
-}
-
-export function createPlugin(instance: GenesisPluginInstance<Options>): GenesisPlugin<Options> {
-  return {
-    id: instance.id,
-    category: instance.category,
-    parseOptions(value) {
-      const options = value as Partial<Options> | undefined;
-      if (!options || typeof options.version !== "string" || !options.version.trim()) {
-        throw new Error("version is required");
-      }
-      return { version: options.version };
+```go
+plugin := core.Plugin{
+    ID: "example", Category: "tool",
+    Detect: func(r *core.Runtime, i core.Instance) (core.DetectResult, error) {
+        result, err := r.Run("example", "--version")
+        return core.DetectResult{OK: result.Code == 0, Details: result.Stdout}, err
     },
-    async detect({ options, context }) {
-      const result = await runCommand("my-tool", ["--version"], context);
-      return { ok: result.code === 0 && result.stdout.trim() === options.version };
-    },
-    async validate(runtime) {
-      const result = await this.detect!(runtime);
-      return { ok: result.ok, message: result.details };
-    },
-  };
 }
 ```
 
-This example detects an existing tool; it does not install it. Add an apply method appropriate to the tool's supported platforms, and verify the executable/version before returning success.
+Use runtime cwd/env for commands, context for HTTP/filesystem work, and task
+registry for shared prerequisites. Avoid global process environment mutation.
+Use `Runtime.RunWithOptions` for explicit timeouts. Archive installs should use
+the shared staged installer and published checksums. See [best practices](/plugins/best-practices).
 
-Register shared prerequisites with exact task IDs in `registerTasks`. Register both package-manager update and package install tasks when using those helpers. Do not register global runtime packages before the runtime exists.
+## Executable plugins
 
-Use `dependsOn` for configured plugin dependencies. `preApply` and `postApply` run around successful apply after prerequisites; hooks should be safe to repeat. Graph errors and option validation fail before provisioning.
+A config module `exec:./path/to/plugin` runs an ordinary platform executable,
+avoiding platform-specific shared libraries. Build plugins in Go or any language
+available on the target host. The executable reads one JSON request from stdin
+and emits one JSON response on stdout; logs belong on stderr.
 
-Mock installer commands in unit tests. Verify argument arrays, architecture/distro selection, returned failure results, and hook order. Use temporary directories for actual filesystem/script operations. Avoid changing the development host during tests.
+Request fields: `protocol: 1`, `method`, `instance`, `cwd`, and `env`. Supported
+methods: `describe`, `parseOptions`, `prepare`, `registerTasks`, `preApply`,
+`detect`, `apply`, `postApply`, and `validate`. Every response requires
+`protocol: 1`; an `error` string fails the call.
 
-See [Plugin API](/api/plugin), [Lifecycle](/plugins/lifecycle), and [Task Registry](/api/task-registry).
+`describe` returns `dependsOn` and a `methods` array advertising implemented optional
+hooks; omitted hooks retain the core defaults. `parseOptions` returns normalized `options`.
+Lifecycle responses may return an `env` delta. Detection/apply/validation return
+`detect: {ok, details}`, `apply: {ok, didChange, details}`, or
+`validate: {ok, message}`. Empty hook responses still include protocol version.
+`registerTasks` can return a `tasks` array with `id`, `description`, `priority`,
+`dependsOn`, `command`, `args`, and optional `timeoutSeconds` (0–86400).
+
+Responses are bounded to 8 MiB; each call has a deadline and respects caller
+cancellation. Calls use separate processes, so preserve state through files or
+explicit output rather than process globals. Configs and plugins are trusted code;
+loading metadata and parsing options also execute the plugin during dry-run.

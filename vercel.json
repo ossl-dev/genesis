@@ -1,7 +1,8 @@
 {
-  "buildCommand": "bun run build && bun run docs:build",
-  "outputDirectory": "apps/docs/.vitepress/dist",
-  "installCommand": "bun install",
+  "buildCommand": "go run ./apps/docs -output dist/docs",
+  "outputDirectory": "dist/docs",
+  "installCommand": "",
   "framework": null,
+  "cleanUrls": true,
   "ignoreCommand": "git diff --quiet HEAD^ HEAD ./"
 }

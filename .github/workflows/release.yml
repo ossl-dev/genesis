@@ -1,0 +1,33 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  binaries:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache: true
+      - run: go test ./...
+      - run: go run ./scripts/release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-binaries
+          path: |
+            dist/genesis-*
+            dist/SHA256SUMS
+      - name: Attach binaries to tagged release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/genesis-* dist/SHA256SUMS --verify-tag --generate-notes

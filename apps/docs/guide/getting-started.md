@@ -1,37 +1,28 @@
 # Getting Started
 
-[Build Genesis from source](/guide/installation), then run its built entrypoint from your project directory.
-
-```bash
-bun /path/to/genesis/apps/cli/dist/index.js init
-```
-
-`init` prompts for TS or YAML format and writes missing config/package/README files. It does not ask which tools to install or support `--defaults`. Edit the generated config to describe your project.
+[Build Genesis](/guide/installation), then run `genesis init --format yaml` in an
+environment repository. Existing files are preserved.
 
 ```yaml
-# genesis.config.yaml
 tools:
   - type: node
     version: "22"
-    use_nvm: true
-env:
-  NODE_ENV: development
+    use_nvm: false
+  - type: git
 scripts:
-  - name: install-dependencies
-    command: npm install
-    when: after
+  - name: verify tools
+    command: git --version
 ```
 
-Preview the planned actions, then apply:
-
-```bash
-bun /path/to/genesis/apps/cli/dist/index.js apply --dry-run
-bun /path/to/genesis/apps/cli/dist/index.js apply
-bun /path/to/genesis/apps/cli/dist/index.js validate
+```sh
+genesis apply --dry-run --json
+genesis apply
+genesis validate
+genesis doctor
 ```
 
-Apply installs missing tools through their plugins, runs scripts with configured environment values, and exits nonzero on failure. Scripts run on every apply; choose commands safe to repeat. Environment variables are not written into your parent shell.
-
-Default discovery prefers `genesis.config.ts` over `genesis.config.yaml`. Use `apply --config ./dev.yaml` to select another file. Configs and plugins can execute code while loading, even during dry-run; use trusted sources.
-
-See [Configuration](/guide/configuration), [Plugins](/plugins/overview), and [Troubleshooting](/guide/troubleshooting).
+Preview loads and validates configuration without provisioning. Apply installs
+plugins and runs scripts/repositories in order. Validate checks configured tools;
+doctor combines detection and validation. Failed operations exit nonzero.
+For explicit configs use `--config configs/dev.yml`. Independent plugins can run
+with `apply --parallel 4`; prerequisites and dependencies remain ordered.

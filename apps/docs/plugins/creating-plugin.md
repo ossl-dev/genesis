@@ -1,5 +1,9 @@
 # Creating a Plugin
 
-See the [Plugin Development guide](/guide/plugin-development) for a typed factory and implementation example, and the [Plugin API](/api/plugin) for available methods.
+Start with [plugin development](/guide/plugin-development). Use a compiled
+`core.Plugin` or an executable implementing protocol version 1. Validate options,
+declare dependencies, detect existing tools, and use shared tasks/installers.
 
-Keep module IDs resolvable by the runtime and IDs unique within a config. Validate options during loading, declare dependencies explicitly, register system prerequisites before apply, and verify the requested state before reporting success.
+Keep commands contextual, cancellation-aware, and safe for reapply. Test missing
+tools, failed commands, unsupported platforms, partial installs, dependency
+failures, and fresh-context rediscovery. Reference: [Plugin API](/api/plugin).

@@ -1,7 +1,10 @@
 # Quick Start
 
-Follow [Getting Started](/guide/getting-started) for the supported source-build workflow.
+[Build Genesis](/guide/installation), run `genesis init --format yaml`, then
+`genesis apply --dry-run`, `genesis apply`, and `genesis doctor`.
 
-The essential sequence is: create a local config, preview with `apply --dry-run`, apply it, then validate the requested tools. Explicit config selection is available through `apply --config <file>`; JSON plan export uses `apply --dry-run --json`.
+Explicit config: `genesis apply --config configs/dev.yml`.
+JSON plan: `genesis apply --dry-run --json`.
+Bounded concurrency: `genesis apply --parallel 4`.
 
-There is no working cloud apply, cache restore, or binary install endpoint yet.
+Cloud apply and environment restore are not implemented.

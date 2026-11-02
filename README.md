@@ -2,105 +2,93 @@
 
 [![CI](https://github.com/ossl-dev/genesis/actions/workflows/ci.yml/badge.svg)](https://github.com/ossl-dev/genesis/actions/workflows/ci.yml)
 
-Genesis provisions development tools, repositories, and setup scripts from a version-controlled config. The goal is to replace repeated onboarding instructions with a reproducible team setup.
+Rebuild developer environments from a versioned configuration: tools, runtimes,
+repositories, environment variables, and setup scripts. Genesis is written in Go
+and builds into a standalone binary. Local provisioning is the current focus;
+cloud services and complete environment restoration remain unfinished.
 
-It is an early-stage TypeScript/Bun monorepo. Local provisioning is the current focus. Cloud environments, complete environment isolation, cache restore, and published standalone binaries are unfinished.
-
-## Run from source
-
-```bash
-bun install --frozen-lockfile
-bun run build
-bun apps/cli/dist/index.js --help
+```sh
+go build -trimpath -o bin/genesis ./apps/cli
+./bin/genesis --help
 ```
 
-From a project directory, run the built entrypoint by its absolute path:
-
-```bash
-bun /path/to/genesis/apps/cli/dist/index.js apply --dry-run
-bun /path/to/genesis/apps/cli/dist/index.js apply
-```
-
-The entrypoint can also run under Node for YAML configs. TypeScript configs require a runtime with TypeScript loading support; Bun is the supported development path. There is no install endpoint or binary release maintained in this repository.
-
-## Configuration
+Go 1.23 or newer builds the source; use a supported Go release for production.
+The resulting binary needs no language runtime. Cross builds cover macOS, Linux,
+and Windows on amd64 and arm64. Native installer support varies by plugin.
 
 ```yaml
-# genesis.config.yaml
 tools:
   - type: node
     version: "22"
-    use_nvm: true
+    use_nvm: false
   - type: git
-    install_method: package
+languages:
+  - type: go
+    version: "1.22.5"
 repositories:
-  - url: https://github.com/your-team/project.git
-    folder: ./project
-    branch: main
-env:
-  NODE_ENV: development
-  WORKSPACE: "${HOME}/projects"
+  - url: https://github.com/example/project.git
+    folder: project
 scripts:
-  - name: install-dependencies
-    command: cd project && npm install
+  - name: verify
+    command: git --version
     when: after
+env:
+  PROJECT_ROOT: "${HOME}/projects"
 ```
 
-Genesis discovers `genesis.config.ts` before `genesis.config.yaml`. `apply --config ./configs/dev.yml` selects an explicit file. YAML supports built-in `type` entries or full plugin instances with `id`, `category`, `module`, and `options`. IDs must be unique. `${NAME}` references use the invoking process's environment; unset variables fail with a field path.
+From the environment directory, run the built binary by its absolute path:
 
-`env` applies to Genesis commands and scripts, not the parent shell. `before` scripts run before plugin provisioning. Repositories clone after successful plugins; `after` scripts run last. Scripts execute every time, so make them safe to repeat. Existing repositories must match the requested origin and branch; local edits are preserved.
-
-## Commands
-
-| Command | Current behavior |
-| --- | --- |
-| `init`, `create` | Prompt for TS/YAML format and scaffold missing files |
-| `apply` | Run scripts, deduplicated system tasks, plugins, and repository setup |
-| `apply --dry-run` | List planned actions without provisioning |
-| `apply --dry-run --json` | Export the action plan as JSON |
-| `diff` | Report plugin detection status; not a package/version change diff |
-| `validate` | Run plugin validation; exit nonzero on a failed check |
-| `doctor` | Run plugin detection and validation for the current config |
-| `list-plugins` | List the eleven built-in plugins |
-| `list --format json` | List local config/cache metadata |
-| `login --token <token>` | Store a token locally; no backend verification or OAuth |
-
-Cloud apply is unavailable and exits nonzero. `list --cloud` only reports the unavailable backend. `GENESIS_DEBUG=1` enables debug logs.
-
-## Plugins and limits
-
-Built-ins: Node, Bun, Deno, pnpm, Yarn, Python, Go, Java, Git, Docker, and Homebrew. Options are validated when plugins load. Missing dependencies, cycles, and duplicate IDs fail before provisioning. Plugins can declare `dependsOn`, `preApply`, and `postApply` hooks.
-
-- macOS uses Homebrew for shared package tasks; include the Homebrew plugin to bootstrap brew before shared prerequisites. Node supports NVM or staged archives, Docker uses Colima by default, and Go uses an archive.
-- Linux shared tasks select APT/DNF/pacman/APK and map common build dependencies. Arch uses its existing package database; maintain the host before provisioning.
-- Node, Go, Java, Bun, and Deno have archive installers on macOS, Linux, and Windows for published x64/ARM64 releases; Windows Git supports MinGit archives; Python/Docker setup remains manual.
-- Go/Java archives use published checksums, staged verification, and recovery on failed promotion. Choose `install_dir` for a writable location; default Unix system directories need permissions. Git uses verified source builds on Unix or MinGit archives on Windows.
-- Docker Desktop needs manual installation and license acceptance. Linux Docker resolves matching Engine/CLI release packages; apply and doctor also verify daemon availability and version.
-- Apply is sequential in the CLI. Core consumers can opt into the tested parallel engine; configured path/port checks cannot infer every installer resource conflict.
-- Rollback and environment isolation are not implemented. A failed run can leave earlier changes in place.
-
-Installers change the host environment. Only run configs and plugin modules you trust. Dry-run skips provisioning methods, but imported TypeScript configs and plugin modules can execute code while loading.
-
-## Development
-
-```bash
-bun run test
-bun run lint
-bun run build
-bun run docs:build
-bun run docs:dev
+```sh
+/path/to/genesis/bin/genesis apply --dry-run --json
+/path/to/genesis/bin/genesis apply
+/path/to/genesis/bin/genesis doctor
 ```
 
-Tests cover config parsing, plugin loading/lifecycle, task dependencies, parallel scheduling, mocked installers, real setup scripts, and local Git clones. CI runs across macOS, Linux, and Windows; these tests do not certify every real installer on each platform.
+`apply --config path.yml` selects an explicit config. `--parallel 4` enables
+bounded goroutines for independent plugins; the default remains sequential.
+Dependencies, overlapping installation paths, and shared ports constrain
+parallelism. System package prerequisites are deduplicated before plugin apply.
+Failed dependencies block dependent plugins. Scripts and repositories run in
+configured order; repository reapply preserves existing work and checks origin,
+branch, and repository root before accepting an existing destination.
 
-The recent work established unit tests and CI, removed dead utilities, and repaired build/type generation. The current improvements make config selection and failure reporting reliable, add lifecycle validation and hooks, repair parallel scheduling, and execute repositories/scripts with dry-run plans. See [ROADMAP.md](ROADMAP.md) for unfinished work.
+All eleven builtins remain: Node, Bun, Deno, pnpm, Yarn, Python, Go, Java, Git,
+Docker, and Homebrew. Archive installers verify published SHA256 checksums,
+stage and verify installations, and retain recoverable backups when rollback
+fails. Linux shared tasks support APT, DNF, pacman, and APK; Docker official
+repositories support Ubuntu, Debian, Fedora, CentOS, and RHEL. Docker Desktop
+and unavailable Windows tools report manual setup requirements.
 
-- [Configuration](apps/docs/guide/configuration.md)
-- [CLI reference](apps/cli/README.md)
-- [Core API](apps/docs/api/core.md)
-- [Plugins](apps/docs/plugins/overview.md)
-- [Architecture](apps/docs/guide/architecture.md)
+YAML is the portable default. Executable Go configurations emit JSON; compiled
+Go plugins and executable plugins replace runtime module imports. See
+[configuration](apps/docs/guide/configuration.md) and
+[plugin development](apps/docs/guide/plugin-development.md).
 
-Report issues at [ossl-dev/genesis](https://github.com/ossl-dev/genesis/issues).
+Only run trusted configurations and plugins. Dry-run skips provisioning hooks;
+Go configs and external plugin validation still execute configured code.
+Installers modify the host. System package operations have no general rollback.
 
-Bun, Deno, pnpm, and Yarn plugins provide pinned runtime/package-manager setup. See the [plugin reference](apps/docs/plugins/overview.md). Real installer smoke checks run with `bun run scripts/installer-smoke.ts` after building core; they require network access and Node/npm, use temporary installation directories, and clean up afterward.
+```sh
+go test ./...
+go test -race ./...
+go vet ./...
+go run ./apps/docs -output dist/docs
+go run ./apps/docs -serve localhost:8080
+go run ./scripts/release
+```
+
+Source layout: `apps/cli`, `apps/docs`, `packages/core`, `packages/plugins`,
+`packages/extension`, and `scripts`. One Go module replaces workspace build
+orchestration. Documentation builds and serves through Go; server search works
+without browser scripting. Static exports support navigation and browser find.
+
+Real downloads and installer reapply checks: `go run ./scripts/smoke installers`.
+They use temporary prefixes and need network access plus source-build tools for
+Git. Linux package/Docker smoke modes require an explicitly disposable root
+host. CI exercises three operating systems and Linux distro containers; local
+cross-compilation is not evidence of native installer execution.
+
+See [roadmap](ROADMAP.md), [migration record](MIGRATION.md), and
+[platform support](apps/docs/guide/platform-support.md). Cache metadata APIs remain
+available, but artifact/network restoration, OAuth, and cloud apply are not
+implemented. Login stores local token metadata without verifying cloud access.

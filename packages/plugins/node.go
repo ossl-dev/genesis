@@ -97,12 +97,13 @@ func Node() core.Plugin {
 		script := filepath.Join(directory, "nvm.sh")
 		changed := false
 		if !exists(script) {
+			changed = true
 			result, err := r.Run("bash", "-c", "set -o pipefail; curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash")
 			if err != nil {
-				return core.ApplyResult{}, err
+				return failedApply(r, "NVM installation failed: "+err.Error(), changed, err)
 			}
 			if result.Code != 0 {
-				return core.ApplyResult{Details: "NVM installation failed: " + result.Stderr}, nil
+				return failedApply(r, "NVM installation failed: "+result.Stderr, changed, nil)
 			}
 			changed = true
 		}
@@ -110,12 +111,13 @@ func Node() core.Plugin {
 		commands := [][]string{{"-c", `source "$1" && nvm install "$2"`, "genesis-nvm", script, version}, {"-c", `source "$1" && nvm alias default "$2"`, "genesis-nvm", script, version}, {"-c", `source "$1" && nvm which "$2"`, "genesis-nvm", script, version}}
 		var executable string
 		for _, args := range commands {
+			changed = true
 			result, err := r.Run("bash", args...)
 			if err != nil {
 				return core.ApplyResult{DidChange: changed}, err
 			}
 			if result.Code != 0 {
-				return core.ApplyResult{DidChange: true, Details: "Node NVM installation failed: " + result.Stderr}, nil
+				return failedApply(r, "Node NVM installation failed: "+result.Stderr, true, nil)
 			}
 			changed = true
 			executable = strings.TrimSpace(result.Stdout)

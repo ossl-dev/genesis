@@ -118,7 +118,7 @@ func npmPlugin(name string) core.Plugin {
 		})
 		if err != nil {
 			var recovery *InstallationRecoveryError
-			return core.ApplyResult{DidChange: errors.As(err, &recovery), Details: name + " installation failed: " + err.Error()}, nil
+			return failedApply(r, name+" installation failed: "+err.Error(), errors.As(err, &recovery), err)
 		}
 		r.Env.PrependPath(bin(r, destination))
 		return core.ApplyResult{OK: true, DidChange: true, Details: fmt.Sprintf("%s %s installed to %s", name, optionString(i.Options, "version"), destination)}, nil

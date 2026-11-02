@@ -21,22 +21,22 @@ func detectHomebrew(runtime *core.Runtime, _ core.Instance) (core.DetectResult, 
 	}
 	return core.DetectResult{OK: true, Details: "Detected Homebrew " + match[1]}, nil
 }
-func installHomebrew(runtime *core.Runtime, instance core.Instance) (string, error) {
+func installHomebrew(runtime *core.Runtime, instance core.Instance) (string, bool, error) {
 	prefix := "/usr/local"
 	if runtime.Arch == "arm64" {
 		prefix = "/opt/homebrew"
 	} else if runtime.Arch != "amd64" {
-		return "", fmt.Errorf("unsupported Homebrew architecture: %s", runtime.Arch)
+		return "", false, fmt.Errorf("unsupported Homebrew architecture: %s", runtime.Arch)
 	}
 	if err := platformCheck(runtime, "bash", "-c", "set -o pipefail; curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh | bash"); err != nil {
-		return "", fmt.Errorf("Homebrew installation failed: %w", err)
+		return "", true, fmt.Errorf("Homebrew installation failed: %w", err)
 	}
 	bin := filepath.Join(prefix, "bin")
 	runtime.Env.PrependPath(bin)
 	if optionBool(instance.Options, "add_to_path") {
 		runtime.Logger.Printf("Add eval \"$(%s/brew shellenv)\" to your shell profile for future sessions.", bin)
 	}
-	return "Homebrew installed to " + prefix, nil
+	return "Homebrew installed to " + prefix, true, nil
 }
 func updateHomebrew(runtime *core.Runtime, instance core.Instance) error {
 	if err := platformCheck(runtime, "brew", "update"); err != nil {
@@ -62,7 +62,7 @@ func Homebrew() core.Plugin {
 			if err != nil || detected.OK {
 				return err
 			}
-			if _, err := installHomebrew(runtime, instance); err != nil {
+			if _, _, err := installHomebrew(runtime, instance); err != nil {
 				return err
 			}
 			detected, err = detectHomebrew(runtime, instance)
@@ -89,9 +89,10 @@ func Homebrew() core.Plugin {
 			}
 			details := "Homebrew updated successfully"
 			if !detected.OK {
-				details, err = installHomebrew(runtime, instance)
+				var attempted bool
+				details, attempted, err = installHomebrew(runtime, instance)
 				if err != nil {
-					return core.ApplyResult{Details: err.Error()}, nil
+					return failedApply(runtime, err.Error(), attempted, err)
 				}
 				verified, err := detectHomebrew(runtime, instance)
 				if err != nil {
@@ -102,7 +103,7 @@ func Homebrew() core.Plugin {
 				}
 			}
 			if err := updateHomebrew(runtime, instance); err != nil {
-				return core.ApplyResult{DidChange: true, Details: "Homebrew update failed: " + err.Error()}, nil
+				return failedApply(runtime, "Homebrew update failed: "+err.Error(), true, err)
 			}
 			return core.ApplyResult{OK: true, DidChange: true, Details: details}, nil
 		}, Validate: func(runtime *core.Runtime, instance core.Instance) (core.ValidateResult, error) {

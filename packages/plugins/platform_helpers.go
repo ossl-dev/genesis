@@ -2,6 +2,7 @@ package plugins
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -30,10 +31,23 @@ func platformFailure(result core.CommandResult, err error) string {
 }
 func platformCheck(runtime *core.Runtime, command string, args ...string) error {
 	result, err := runtime.Run(command, args...)
-	if err != nil || result.Code != 0 {
-		return fmt.Errorf("%s failed: %s", command, platformFailure(result, err))
+	if err != nil {
+		return fmt.Errorf("%s failed: %w", command, err)
+	}
+	if result.Code != 0 {
+		return fmt.Errorf("%s failed: %s", command, platformFailure(result, nil))
 	}
 	return nil
+}
+func failedApply(runtime *core.Runtime, details string, didChange bool, cause error) (core.ApplyResult, error) {
+	result := core.ApplyResult{DidChange: didChange, Details: details}
+	if canceled := platformContextError(runtime); canceled != nil && !errors.Is(cause, canceled) {
+		cause = errors.Join(cause, canceled)
+	}
+	if errors.Is(cause, context.Canceled) || errors.Is(cause, context.DeadlineExceeded) {
+		return result, cause
+	}
+	return result, nil
 }
 func platformContextError(runtime *core.Runtime) error {
 	if runtime.Context != nil {

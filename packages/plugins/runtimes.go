@@ -110,7 +110,7 @@ func simpleRuntime(spec runtimeSpec) core.Plugin {
 			}
 		}
 		var recovery *InstallationRecoveryError
-		return core.ApplyResult{DidChange: errors.As(err, &recovery), Details: fmt.Sprintf("%s installation failed: %v", spec.name, err)}, nil
+		return failedApply(r, fmt.Sprintf("%s installation failed: %v", spec.name, err), errors.As(err, &recovery), err)
 	}, Validate: func(r *core.Runtime, i core.Instance) (core.ValidateResult, error) {
 		result, err := detect(r, i)
 		return core.ValidateResult{OK: result.OK, Message: result.Details}, err

@@ -146,7 +146,7 @@ func applyGit(runtime *core.Runtime, instance core.Instance) (core.ApplyResult, 
 	}
 	if err != nil {
 		var recovery *InstallationRecoveryError
-		return core.ApplyResult{DidChange: errors.As(err, &recovery), Details: "Git installation failed: " + err.Error()}, nil
+		return failedApply(runtime, "Git installation failed: "+err.Error(), errors.As(err, &recovery), err)
 	}
 	runtime.Env.PrependPath(filepath.Dir(gitExecutable(runtime, destination)))
 	runtime.Logger.Printf("Add %s to your shell PATH for future sessions.", filepath.Dir(gitExecutable(runtime, destination)))
@@ -174,7 +174,7 @@ func buildGit(runtimeContext *core.Runtime, root string) (string, error) {
 	if err := platformCopyTree(runtimeContext.Context, extracted, source); err != nil {
 		return "", err
 	}
-	workers := runtime.NumCPU()
+	workers := runtime.GOMAXPROCS(0)
 	if workers < 1 {
 		workers = 1
 	}
@@ -185,8 +185,11 @@ func buildGit(runtimeContext *core.Runtime, root string) (string, error) {
 	steps := [][]string{append(append([]string{fmt.Sprintf("-j%d", workers)}, args...), "all"), append(append([]string{}, args...), "DESTDIR="+staged, "install")}
 	for _, step := range steps {
 		result, err := platformRunAt(runtimeContext, source, "make", step...)
-		if err != nil || result.Code != 0 {
-			return "", fmt.Errorf("Git build failed: %s", platformFailure(result, err))
+		if err != nil {
+			return "", fmt.Errorf("Git build failed: %w", err)
+		}
+		if result.Code != 0 {
+			return "", fmt.Errorf("Git build failed: %s", platformFailure(result, nil))
 		}
 	}
 	return filepath.Join(staged, "usr", "local"), nil
@@ -201,7 +204,10 @@ func verifyGit(runtime *core.Runtime, root, version string) error {
 		return errors.New(detected.Details)
 	}
 	helpers, err := runtime.Run(executable, "--exec-path")
-	if err != nil || helpers.Code != 0 {
+	if err != nil {
+		return fmt.Errorf("Git HTTPS helper check failed: %w", err)
+	}
+	if helpers.Code != 0 {
 		return fmt.Errorf("Git HTTPS helper is unavailable inside the installation directory")
 	}
 	helperDirectory := strings.TrimSpace(helpers.Stdout)

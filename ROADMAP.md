@@ -7,9 +7,9 @@ Things to build, fix, and improve. Checked boxes mean implemented in this reposi
 1. Validate Docker daemon startup on disposable systemd hosts and expand real macOS/Windows installer coverage.
 2. Validate Homebrew bootstrap and update behavior on disposable macOS hosts.
 3. Observe installer CI on macOS/Ubuntu/Windows and Linux distribution containers; finish Windows Python installation.
-4. Finish local cache persistence/restore before cloud sync or standalone distribution.
+4. Finish local cache persistence/restore before cloud sync.
 
-Go migration preserves all eleven plugins, validated lifecycle hooks, task graphs, repository/script apply, cache metadata APIs, and CLI commands. Genesis builds as one standalone binary. CLI defaults to sequential execution; `apply --parallel N` enables bounded goroutines. See [migration evidence](MIGRATION.md).
+Go migration preserves all eleven plugins, validated lifecycle hooks, task graphs, repository/script apply, cache metadata APIs, and CLI commands. Genesis builds as one standalone binary. CLI defaults to sequential execution; `apply --parallel N` enables bounded goroutines. Documentation remains independent in VitePress.
 
 **Want to contribute?** Pick an unchecked box, open an issue saying you're on it, send a PR. Keep one item per PR. If something's unclear, open an issue and ask — don't guess.
 
@@ -75,8 +75,8 @@ Make existing stuff faster, safer, more portable.
 ### Platform support
 
 - [ ] **Windows** — Node/Go/Java/Bun/Deno archive installers and pnpm/Yarn npm prefixes are implemented. Git MinGit archives are implemented; add native Python installation.
-- [ ] **Linux** — test on Debian, Fedora, Arch. APT/DNF/pacman/APK selection and build dependency mappings are implemented, with Debian/Fedora/Alpine container checks and an emulated Arch check. Observe native CI and verify remaining plugin-specific package availability.
-- [ ] **aarch64 / ARM** — archive installers and Linux Docker reject unsupported architectures. macOS and Linux ARM64 installer/package checks run locally; expand native CI coverage.
+- [ ] **Linux** — test on Debian, Fedora, Arch. APT/DNF/pacman/APK selection and build dependency mappings are implemented. Go container fixtures cover Debian/Fedora/Arch/Alpine; local Docker was unavailable for migration reruns. Observe native CI and verify remaining plugin-specific package availability.
+- [ ] **aarch64 / ARM** — archive installers and Linux Docker reject unsupported architectures. macOS ARM64 Go installer checks passed; expand native Linux/Windows CI coverage.
 - [x] `genesis doctor` detects and validates configured plugins with nonzero failure exits
 - [ ] Add config-free host diagnostics and prerequisite inventory to doctor
 

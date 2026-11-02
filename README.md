@@ -72,8 +72,8 @@ Installers modify the host. System package operations have no general rollback.
 go test ./...
 go test -race ./...
 go vet ./...
-cd apps/docs && bun run build
-cd apps/docs && bun run dev
+bun run --cwd apps/docs build
+bun run --cwd apps/docs dev
 go run ./scripts/release
 ```
 
@@ -89,7 +89,7 @@ Git. Linux package/Docker smoke modes require an explicitly disposable root
 host. CI exercises three operating systems and Linux distro containers; local
 cross-compilation is not evidence of native installer execution.
 
-See [roadmap](ROADMAP.md), [migration record](MIGRATION.md), and
+See [roadmap](ROADMAP.md) and
 [platform support](apps/docs/guide/platform-support.md). Cache metadata APIs remain
 available, but artifact/network restoration, OAuth, and cloud apply are not
 implemented. Login stores local token metadata without verifying cloud access.

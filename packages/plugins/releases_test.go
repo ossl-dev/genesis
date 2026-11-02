@@ -144,3 +144,12 @@ func TestChecksumManifest(t *testing.T) {
 		t.Fatal("missing checksum accepted")
 	}
 }
+
+func TestBunRequiresDigestAlgorithm(t *testing.T) {
+	mockHTTP(t, func(r *http.Request) (string, error) {
+		return fmt.Sprintf(`{"assets":[{"name":"bun-darwin-aarch64.zip","browser_download_url":"https://example.com/archive.zip","digest":%q}]}`, testHash), nil
+	})
+	if _, err := BunRelease(context.Background(), "1.3.2", "macos", "arm64", "auto"); err == nil {
+		t.Fatal("unlabelled asset digest accepted")
+	}
+}

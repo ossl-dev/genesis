@@ -145,7 +145,9 @@ func BunRelease(ctx context.Context, version, platform, architecture, libc strin
 	for _, a := range release.Assets {
 		if a.Name == filename {
 			assetURL = a.URL
-			digest = strings.TrimPrefix(a.Digest, "sha256:")
+			if len(a.Digest) >= 7 && strings.EqualFold(a.Digest[:7], "sha256:") {
+				digest = a.Digest[7:]
+			}
 		}
 		if a.Name == "SHASUMS256.txt" {
 			sumsURL = a.URL

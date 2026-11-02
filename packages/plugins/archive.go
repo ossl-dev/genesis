@@ -290,6 +290,11 @@ func writeArchiveFile(ctx context.Context, root, target string, mode os.FileMode
 	return closeErr
 }
 func extractArchive(ctx context.Context, archive, root, format string) error {
+	canonicalRoot, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		return err
+	}
+	root = canonicalRoot
 	count := 0
 	var extracted int64
 	account := func(size int64) error {

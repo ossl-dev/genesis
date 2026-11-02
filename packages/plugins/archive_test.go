@@ -304,3 +304,38 @@ func BenchmarkMatchesVersion(b *testing.B) {
 		}
 	}
 }
+
+func TestArchiveHardLinksUnderSymlinkedParent(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("requires symlinks")
+	}
+	var buffer bytes.Buffer
+	gz := gzip.NewWriter(&buffer)
+	writer := tar.NewWriter(gz)
+	writer.WriteHeader(&tar.Header{Name: "runtime/first-link", Typeflag: tar.TypeLink, Linkname: "runtime/second-link"})
+	writer.WriteHeader(&tar.Header{Name: "runtime/second-link", Typeflag: tar.TypeLink, Linkname: "runtime/file"})
+	writer.WriteHeader(&tar.Header{Name: "runtime/file", Mode: 0755, Size: 2})
+	writer.Write([]byte("ok"))
+	writer.Close()
+	gz.Close()
+	r := testRuntime(t)
+	realParent := t.TempDir()
+	alias := filepath.Join(r.Cwd, "alias")
+	if err := os.Symlink(realParent, alias); err != nil {
+		t.Fatal(err)
+	}
+	release, _ := fixtureRelease(t, buffer.Bytes(), "tar.gz")
+	err := InstallArchive(r, filepath.Join(alias, "installed"), "", release, SingleDirectory, func(root string) error {
+		data, err := os.ReadFile(filepath.Join(root, "first-link"))
+		if err != nil {
+			return err
+		}
+		if string(data) != "ok" {
+			return errors.New("hardlink mismatch")
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}

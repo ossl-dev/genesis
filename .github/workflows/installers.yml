@@ -4,64 +4,52 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['packages/plugins/**', 'packages/core/src/os/**', 'packages/core/src/execution/system-tasks*', 'scripts/*smoke*', '.github/workflows/installers.yml', 'bun.lock']
+    paths: ['packages/**', 'scripts/smoke/**', 'scripts/package-manager-smoke.Dockerfile', '.github/workflows/installers.yml', 'go.mod', 'go.sum', '.dockerignore']
   pull_request:
-    paths: ['packages/plugins/**', 'packages/core/src/os/**', 'packages/core/src/execution/system-tasks*', 'scripts/*smoke*', '.github/workflows/installers.yml', 'bun.lock']
+    paths: ['packages/**', 'scripts/smoke/**', 'scripts/package-manager-smoke.Dockerfile', '.github/workflows/installers.yml', 'go.mod', 'go.sum', '.dockerignore']
 
 concurrency:
   group: installers-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   archives-and-package-managers:
     name: Install on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v1
+      - uses: actions/setup-go@v5
         with:
-          bun-version: '1.3.2'
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - run: bun install --frozen-lockfile
-      - run: bun run --filter @ossl/genesis-core build
+          go-version: stable
+          check-latest: true
+          cache: true
       - if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y build-essential libcurl4-openssl-dev zlib1g-dev libexpat1-dev perl
-      - run: bun run scripts/installer-smoke.ts
+      - if: runner.os == 'macOS'
+        run: xcode-select -p && make --version
+      - run: go run ./scripts/smoke installers
 
   linux-packages:
     name: Packages on ${{ matrix.image }}
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - image: debian:bookworm-slim
-            bun: oven/bun:1.3.2
-          - image: fedora:43
-            bun: oven/bun:1.3.2
-          - image: archlinux:base-devel
-            bun: oven/bun:1.3.2
-          - image: alpine:3.22
-            bun: oven/bun:1.3.2-alpine
+        image: [debian:bookworm-slim, fedora:43, archlinux:base-devel, alpine:3.22]
     steps:
       - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v1
-        with:
-          bun-version: '1.3.2'
-      - run: bun install --frozen-lockfile
-      - run: bun run --filter @ossl/genesis-core build
-      - run: docker build -f scripts/package-manager-smoke.Dockerfile --build-arg BASE_IMAGE="$BASE_IMAGE" --build-arg BUN_IMAGE="$BUN_IMAGE" -t genesis-packages .
+      - run: docker build -f scripts/package-manager-smoke.Dockerfile --build-arg BASE_IMAGE="$BASE_IMAGE" -t genesis-packages .
         env:
           BASE_IMAGE: ${{ matrix.image }}
-          BUN_IMAGE: ${{ matrix.bun }}
-      - run: docker run --rm --mount type=bind,source="$PWD",target=/work,readonly genesis-packages
+      - run: docker run --rm genesis-packages packages
       - if: startsWith(matrix.image, 'debian:') || startsWith(matrix.image, 'fedora:')
-        run: docker run --rm --mount type=bind,source="$PWD",target=/work,readonly genesis-packages bun scripts/docker-packages-smoke.ts
+        run: docker run --rm genesis-packages docker

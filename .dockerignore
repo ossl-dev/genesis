@@ -1,0 +1,5 @@
+.git
+.cocoindex_code
+bin
+dist
+.DS_Store

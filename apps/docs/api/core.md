@@ -1,54 +1,54 @@
 # Core API
 
-Exports from `@ossl/genesis-core`.
+Import `github.com/ossl-dev/genesis/packages/core`. All operations return errors explicitly; library calls never set the process exit status.
 
 ## Configuration
 
-```typescript
-loadConfig(cwd: string, configPath?: string, env?: NodeJS.ProcessEnv): Promise<GenesisConfig>
-validateConfig(value: unknown): GenesisConfig
-defineConfig(config: GenesisConfig): GenesisConfig
+```go
+func LoadConfig(cwd, path string) (Config, error)
+func LoadConfigWithEnv(cwd, path string, lookup func(string) (string, bool)) (Config, error)
+func NormalizeConfig(raw any) (Config, error)
+func ValidateConfig(config Config) error
+func CollectInstances(config Config) []Instance
 ```
 
-`loadConfig` discovers TS then YAML, normalizes YAML entries, expands environment references, and reports errors with file/field context. `validateConfig` validates the normalized structure and rejects duplicate IDs. `defineConfig` is a typed identity helper.
+An empty path discovers `genesis.config.go`, `.yaml`, `.yml`, then `.json`. Explicit paths resolve against `cwd`. YAML/JSON accept built-in `type` shorthand and repository `path` as an alias for `folder`. Parsing rejects malformed sections, duplicate IDs, missing fields, multiple documents, and files larger than 8 MiB. `${NAME}` references expand from the supplied lookup or host environment; missing variables report their field path. Shell expressions are never evaluated.
 
-`GenesisConfig` has optional `tools`, `sdks`, `languages`, `repositories`, `scripts`, and `env` sections. Repository specs have `url`, `folder`, and optional `branch`; the loader also accepts `path` as an input alias. Script specs have `name`, `command`, optional `description`, and optional `when: before | after`.
+`Config` contains `Tools`, `SDKs`, `Languages`, `Repositories`, `Scripts`, and `Env`. `Instance` has `ID`, `Category`, `Module`, and `Options`. Options remain plugin-specific maps. Repository specs have `URL`, `Folder`, and optional `Branch`. Script specs have `Name`, `Command`, optional `Description`, and `When` (`before` or `after`, default `after`).
 
-## Plugins
+Executable Go configurations require `GoConfigLoader`; the CLI installs `extension.LoadGoConfig`. Pure YAML/JSON consumers need no compiler. The [configuration guide](/guide/configuration) describes executable configs and their trust boundary.
 
-```typescript
-collectPluginInstances(config: GenesisConfig): GenesisPluginInstance[]
-loadPlugin(instance: GenesisPluginInstance): Promise<PluginExecutionNode>
-loadPlugins(instances: GenesisPluginInstance[]): Promise<PluginExecutionNode[]>
-buildPluginGraph(nodes: PluginExecutionNode[]): PluginExecutionNode[]
+## Plugins and execution
+
+Built-in loading belongs to `packages/plugins`: `Load(config)` or `LoadWithResolver(config, resolver)` validates options and builds dependency order. `packages/extension` provides executable custom-plugin resolution. Core accepts `[]Node`, allowing callers to construct plugins directly.
+
+```go
+func BuildPluginGraph(nodes []Node) ([]Node, error)
+func RunDetect(nodes []Node, runtime *Runtime) ([]DetectSummary, error)
+func RunDiff(nodes []Node, runtime *Runtime) ([]DetectSummary, error)
+func RunValidate(nodes []Node, runtime *Runtime) ([]ValidateSummary, error)
+func RunApplyPrerequisites(nodes []Node, runtime *Runtime) error
+func RunApply(nodes []Node, runtime *Runtime) ([]ApplySummary, error)
 ```
 
-The loader imports `createPlugin`, checks identity/category, and runs optional `parseOptions`. Graph building rejects duplicates, missing dependencies, and cycles. See [Plugin API](/api/plugin).
-
-```typescript
-runDetect(nodes, context): Promise<DetectSummary[]>
-runDiff(nodes, context): Promise<DetectSummary[]>
-runApply(nodes, context): Promise<ApplySummary[]>
-runValidate(nodes, context): Promise<ValidateSummary[]>
-```
-
-`runDiff` currently delegates to detection. `runApply` sorts dependencies, runs deduplicated prerequisites, then pre/apply/post hooks. Failed prerequisites reject. Returned plugin failures block dependents; thrown errors stop the run. These functions do not themselves set a process exit status.
+Graph validation rejects duplicate IDs, missing dependencies, and cycles before provisioning. `RunDiff` reports detection status rather than a complete package/version diff. `RunApply` runs prerequisites, then each plugin's pre/apply/post hooks. Failed system tasks stop apply. A plugin returning `OK: false` blocks its dependents while independent plugins can continue. A returned hook error stops sequential execution.
 
 ## Environment execution
 
-```typescript
-applyEnvironment(config, nodes, context): Promise<ApplySummary[]>
-createEnvironmentPlan(config, nodes): { environment: string[]; actions: EnvironmentAction[] }
+```go
+func CreateEnvironmentPlan(config Config, nodes []Node) (Plan, error)
+func ApplyEnvironment(config Config, nodes []Node, runtime *Runtime) ([]ApplySummary, error)
+func ApplyEnvironmentParallel(config Config, nodes []Node, runtime *Runtime, workers int) ([]ApplySummary, error)
 ```
 
-`applyEnvironment` merges config environment values into a copy of context, runs before scripts, applies plugins, checks/clones repositories, then runs after scripts. Plugin failures return summaries and prevent repository/after-script work. Script/repository errors reject.
+Apply copies the runtime environment, merges config values, runs before scripts, applies plugins, checks/clones repositories, then runs after scripts. Failed plugins prevent repository/after-script work. Existing repositories must match their origin and requested branch; Genesis preserves uncommitted changes and never resets or pulls them.
 
-The plan contains ordered script/plugin/repository actions and environment variable names. It does not call lifecycle methods or inspect installed state, and excludes environment values.
+Plans list ordered actions and environment variable names without running plugin hooks or provisioning commands. Environment values are excluded.
 
-## Tasks and utilities
+See [Plugin API](/api/plugin), [Task Registry](/api/task-registry), [Parallel Execution](/api/execution), and [Utilities](/api/utilities).
 
-See [Task Registry](/api/task-registry), [Parallel Execution](/api/execution), and [Utilities](/api/utilities).
+## Cache metadata prototype
 
-`EnvironmentCacheManager` and its snapshot/artifact types are exported but unfinished. Compression stores metadata in memory, optional "remote" sync writes local JSON, restore does not restore files/network, and encryption is not implemented. The CLI has no usable restore workflow. These APIs are not backup guarantees.
+`NewEnvironmentCacheManager(CacheConfig)` creates an in-memory metadata store. `CacheEnvironment`, `ExportEnvironment`, `ImportEnvironment`, `CreateSnapshot`, `Cleanup`, and `GetStats` retain metadata operations. Config checksums use SHA-256; imports are validated and limited to 8 MiB. `CompressMetadata` and `DecompressMetadata` provide bounded gzip transport.
 
-`loadPlugin(instance, importModule?)` and `loadPlugins(instances, importModule?)` accept a consumer-scoped async importer for isolated dependency layouts. The CLI imports plugins from its own declared dependencies; a core consumer can pass `moduleId => import(moduleId)` from the module that owns its plugins.
+Artifact capture, durable reload, filesystem/network restore, encryption, remote synchronization, tarball export, and Docker export remain unfinished. Unsupported operations return errors; snapshots report `Restorable: false`. CLI apply does not create backups or populate this prototype. Snapshot metadata includes environment values and should be treated as private.

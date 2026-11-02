@@ -1,45 +1,54 @@
 # Task Registry API
 
-`TaskRegistry` deduplicates system operations by exact task ID within one execution context.
+`core.TaskRegistry` deduplicates shared system operations by exact ID within one runtime.
 
-```typescript
-interface Task {
-  id: string;
-  description: string;
-  executor: () => Promise<TaskResult>;
-  priority?: number;
-  dependsOn?: string[];
-}
-interface TaskResult {
-  ok: boolean;
-  details?: string;
-  error?: string;
+```go
+package example
+
+import (
+    "context"
+    "github.com/ossl-dev/genesis/packages/core"
+)
+
+func Register(registry *core.TaskRegistry) error {
+    return registry.Register(core.Task{
+        ID: "example:check",
+        Description: "Check prerequisite",
+        Priority: 100,
+        Execute: func(ctx context.Context) (core.TaskResult, error) {
+            return core.TaskResult{OK: true}, ctx.Err()
+        },
+    })
 }
 ```
 
+`Task` has `ID`, `Description`, `Priority`, `DependsOn []string`, and `Execute func(context.Context) (TaskResult, error)`. `TaskResult` has `OK`, `Details`, and `Error`.
+
 | Method | Behavior |
 | --- | --- |
-| `register(task)` | Keep the first task for an ID; ignore duplicates |
-| `has(id)` | Check registration |
-| `getStatus(id)` | pending/running/completed/failed/not-found |
-| `getResult(id)` | Completed result, if available |
-| `getTaskIds()` | Registered IDs |
-| `executeAll()` | Execute in dependency/priority order; return a result Map |
-| `clear()` | Remove registrations/results |
+| `NewTaskRegistry()` | Create an empty registry |
+| `Register(task)` | Keep the first task per ID; reject missing ID/executor |
+| `Has(id)` | Check registration |
+| `Status(id)` | pending/running/completed/failed/not-found |
+| `Result(id)` | Result plus availability boolean |
+| `IDs()` | Registration order |
+| `ExecuteAll(ctx)` | Dependency/priority order; results map plus error |
+| `Clear()` | Remove registrations and results |
 
-Dependencies override priority. Higher priority runs first among the traversal's available task roots. Missing dependencies and cycles reject before task execution. Failed dependencies skip their child tasks. Thrown executor errors become failed results. Repeated executeAll calls reuse completed results; clear/create another registry for another run. Do not invoke executeAll concurrently on one registry.
+Dependencies override priority. Higher priority starts traversal earlier; ties preserve registration order. Missing dependencies and cycles fail before any task executes. Failed dependencies skip child tasks. Executor errors and panics become failed task results. Context cancellation returns an error. Repeated execution reuses results; concurrent execution calls serialize. Register tasks before execution, then create/clear a registry for a new run.
 
-## Task helpers
+## System helpers
 
-- `createPackageManagerTaskId(operation, packageName?)`
-- `createPackageManagerUpdateTask(cwd, env)`
-- `createPackageInstallTask(packageName, cwd, env)`
-- `createCommandCheckTask(commandName, cwd, env)`
-- `createCustomTask(id, description, executor, { priority?, dependsOn? })`
-- `ensurePackageManagerUpdate()` and `ensurePackageInstalled(name)` return IDs only.
+```go
+func RegisterPackageTasks(r *Runtime, packages ...string) error
+func CreatePackageManagerUpdateTask(r *Runtime) (Task, error)
+func CreatePackageInstallTask(r *Runtime, name string) (Task, error)
+func PackageManagerTaskID(platform, manager, operation, packageName string) string
+func CreateCommandCheckTask(r *Runtime, name string) Task
+```
 
-Install tasks depend on the update task: register both. Dependency IDs must match exactly; wildcards are not resolved. Custom task IDs are prefixed with the platform and `custom:`.
+`RegisterPackageTasks` registers both metadata and install tasks; exact IDs deduplicate shared requests. Install tasks depend on metadata tasks. `CreateCustomTask` prefixes IDs with `<platform>:custom:` and accepts explicit priority/dependencies. Dependency IDs do not support wildcards.
 
-Shared tasks use brew on macOS, Chocolatey on Windows, and APT/DNF/pacman/APK selected from Linux `os-release`. Common build dependencies are mapped to distribution packages. Unknown distributions and invalid package names are rejected. Linux root processes run without sudo.
+Shared packages use brew on macOS, Chocolatey on Windows, or APT/DNF/pacman/APK selected from Linux `os-release`. Common compiler/TLS/cURL/zlib/Expat packages map to each distribution's names. Unknown distributions and malformed package names fail early. Linux root runs without sudo.
 
-Update tasks refresh metadata for brew/APT/DNF/APK. pacman uses its existing database; update Arch hosts with `pacman -Syu` before provisioning. Chocolatey needs no separate refresh. These tasks never upgrade the whole host.
+Metadata tasks refresh brew/APT/DNF/APK. pacman keeps its existing database: maintain Arch hosts with `pacman -Syu` before provisioning. Chocolatey resolves metadata during installs. Shared tasks never perform host-wide upgrades.

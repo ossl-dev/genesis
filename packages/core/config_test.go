@@ -68,3 +68,18 @@ func writeTestFile(t *testing.T, path, text string) {
 		t.Fatal(err)
 	}
 }
+func TestConfigTrimsPluginIdentityAndRejectsEmptyBranch(t *testing.T) {
+	dir := t.TempDir()
+	writeTestFile(t, filepath.Join(dir, "genesis.config.yaml"), "tools: [{id: ' node ', category: tool, module: ' builtin:node '}]")
+	config, err := LoadConfig(dir, "")
+	if err != nil || config.Tools[0].ID != "node" || config.Tools[0].Module != "builtin:node" {
+		t.Fatal(config, err)
+	}
+	writeTestFile(t, filepath.Join(dir, "genesis.config.yaml"), "repositories: [{url: repo,folder: here,branch: ''}]")
+	if _, err := LoadConfig(dir, ""); err == nil {
+		t.Fatal("empty branch accepted")
+	}
+	if err := ValidateConfig(Config{Env: map[string]string{"VALUE": "nul\x00"}}); err == nil {
+		t.Fatal("NUL accepted")
+	}
+}

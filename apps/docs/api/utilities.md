@@ -1,46 +1,56 @@
 # Utilities
 
-These are the current exported utilities from `@ossl/genesis-core`.
+Import `github.com/ossl-dev/genesis/packages/core`.
 
-## Shell and platform
+## Commands and platforms
 
-```typescript
-getPlatform(): "macos" | "windows" | "linux"
-runCommand(command: string, args: string[], options?: { cwd?: string; env?: NodeJS.ProcessEnv }): Promise<{ code: number; stdout: string; stderr: string }>
+```go
+func GetPlatform() string
+func RunCommand(ctx context.Context, command string, args []string, options CommandOptions) (CommandResult, error)
+func GetLinuxDistribution() (LinuxDistribution, error)
+func ParseLinuxDistribution(data []byte) (LinuxDistribution, error)
+func PackageManager(platform string, distro LinuxDistribution) (string, error)
 ```
 
-`runCommand` invokes an executable with an argument array through execa. It does not interpret shell syntax or split a command string. Nonzero exits return results rather than rejecting; check `code`. A missing exit code is treated as failure. Exceptions can still reject.
+Supported platform names are `macos`, `linux`, and `windows`; other hosts retain their Go OS name and package-task selection rejects them. Runtime architecture uses Go names such as `amd64` and `arm64`.
 
-```typescript
-const result = await runCommand("git", ["--version"], { cwd, env });
-if (result.code !== 0) throw new Error(result.stderr || "Git unavailable");
+`LinuxDistribution` contains `ID`, `Like`, and `Codename`. Parsing does not execute `os-release` values. Detection reads `/etc/os-release`, falling back to `/usr/lib/os-release` only when the first file is missing.
+
+`CommandOptions` has `Cwd`, `Env map[string]string`, and `Timeout time.Duration`. Commands use argument arrays and runtime PATH resolution. Nonzero exits and launch failures return nonzero `CommandResult.Code` plus `Stderr`; context cancellation/deadlines return an error as well. Always inspect `Code` after checking `error`.
+
+Stdout/stderr are drained with a 4 MiB retained prefix per stream to bound memory. Leading/trailing whitespace is trimmed. Windows batch shims run through `cmd.exe`; embedded quotes, newlines, or NUL in their arguments are rejected. Explicit shell scripts remain available through shell invocation.
+
+```go
+package example
+
+import (
+    "context"
+    "fmt"
+    "time"
+    "github.com/ossl-dev/genesis/packages/core"
+)
+
+func CheckGit(ctx context.Context) error {
+    result, err := core.RunCommand(ctx, "git", []string{"--version"}, core.CommandOptions{
+        Timeout: 15 * time.Second,
+    })
+    if err != nil { return err }
+    if result.Code != 0 { return fmt.Errorf("git unavailable: %s", result.Stderr) }
+    return nil
+}
 ```
 
-For intentional shell scripts, invoke the shell explicitly. Avoid interpolating user values into shell source; use executable arguments or shell positional parameters.
+## Filesystem and environment
 
-There is no public `getDistro` or package-manager discovery API. Shared package tasks select brew/APT/Chocolatey by platform.
-
-## Filesystem paths
-
-```typescript
-ensureDir(dir: string): Promise<void>
-getGenesisHome(): string
-ensureGenesisHome(): Promise<string>
-joinPath(...segments: string[]): string
+```go
+func EnsureDir(path string) error
+func GetGenesisHome() string
+func EnsureGenesisHome() (string, error)
+func JoinPath(segments ...string) string
+func WritePrivateFile(path string, data []byte) error
+func NewEnvironment(values map[string]string) *Environment
 ```
 
-Genesis home is `~/.genesis`. Use Node filesystem APIs for reads/writes. Previously documented download, environment-variable, and shell-profile helpers are not exported.
+Genesis home is `~/.genesis`. `WritePrivateFile` writes through a temporary file in the destination directory with mode 0600 and renames it into place. `NewEnvironment(nil)` copies the host environment; passing an empty map creates an empty environment. `Environment.Get`, `Set`, `Snapshot`, and `PrependPath` synchronize concurrent access; returned maps are copies.
 
-## Logger
-
-```typescript
-const logger = new Logger({ level: "info", useColors: false, prefix: "genesis" });
-logger.debug("details");
-logger.info("progress");
-logger.warn("warning");
-logger.error("failure");
-```
-
-Levels are `debug`, `info`, `warn`, and `error`. Color defaults to TTY support and respects a nonempty `NO_COLOR`. Logging does not control process exit status.
-
-`runCommand` also accepts an optional `timeout` in milliseconds. A timed-out child returns a nonzero code and an explanatory error when stderr is empty. Docker daemon checks use a 15-second timeout.
+`Runtime.Logger` is a standard `*log.Logger`; absent loggers discard output. CLI logging goes to stderr, preserving JSON stdout. Library calls do not control process exit status.

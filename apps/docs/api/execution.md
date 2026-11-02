@@ -1,37 +1,44 @@
 # Parallel Execution API
 
-The CLI applies plugins sequentially. Core API consumers can opt into parallel execution for plugins whose installers can safely run together.
+Core uses bounded goroutine workers and dependency phases. CLI apply defaults to one worker; `--parallel` enables parallel execution.
 
-```typescript
-import { ParallelExecutionEngine, Logger, TaskRegistry } from "@ossl/genesis-core";
+```go
+package main
 
-const logger = new Logger({ level: "info" });
-const engine = new ParallelExecutionEngine(logger, 2);
-const plan = await engine.createExecutionPlan(nodes);
-const results = await engine.executeParallel(plan, {
-  cwd: process.cwd(),
-  env: { ...process.env },
-  logger,
-  taskRegistry: new TaskRegistry(logger),
-});
+import (
+    "log"
+    "github.com/ossl-dev/genesis/packages/core"
+)
 
-if (results.some(result => !result.success)) {
-  throw new Error("Environment apply failed");
+func main() {
+    engine, err := core.NewParallelExecutionEngine(2)
+    if err != nil { log.Fatal(err) }
+    plan, err := engine.CreateExecutionPlan(nil)
+    if err != nil { log.Fatal(err) }
+    results, err := engine.ExecuteParallel(plan, &core.Runtime{})
+    if err != nil { log.Fatal(err) }
+    for _, result := range results {
+        if !result.Success { log.Fatal(result.Error) }
+    }
 }
 ```
 
-`nodes` are loaded `PluginExecutionNode` objects. Planning rejects duplicate IDs, missing dependencies, and cycles. Independent plugins share a phase; dependents run in later phases. The worker limit must be a positive integer and is capped at the host's available CPU count.
+Use loaded `[]core.Node` instead of `nil` for real work. Planning rejects graph errors before execution. Worker counts must be positive and are capped at `GOMAXPROCS`. A dependency phase finishes before its dependents begin. Results retain plan order, regardless of completion order.
 
-Execution registers and runs system prerequisites once, then calls `preApply`, `apply`, and `postApply`. Failed prerequisites reject execution. Failed plugin results, exceptions, and hook failures are recorded in results and block transitive dependents; independent plugins can finish.
+Prepare hooks, task registration, and shared system tasks run sequentially before workers start. Parallel plugin errors and panics become failed results; dependent plugins are skipped, while independent work can finish. Runtime environment updates use synchronized `Environment` methods.
 
-## Resource checks
+## Resource checks and cancellation
 
-A phase runs sequentially when plugin options share a port or overlapping paths in `path`, `install_dir`, `home`, `prefix`, `target`, `destination`, `output_dir`, or `cache_dir`. Execution checks paths again relative to the actual working directory.
+A phase becomes sequential when options overlap paths in `path`, `install_dir`, `home`, `prefix`, `target`, `destination`, `output_dir`, or `cache_dir`, or share a port. Execution checks relative paths again against the actual working directory.
 
-These checks do not discover package-manager locks, symlink aliases, shared shell profiles, or undeclared resources. Use sequential execution for installers with those risks. Resource thresholds, cancellation, and per-task timeouts are not implemented.
+These checks cannot infer symlink aliases, package-manager locks, shell-profile mutations, or undeclared resources. Keep plugins sharing those resources sequential. The engine does not enforce RAM/CPU thresholds.
+
+`Runtime.Context` propagates cancellation into hooks and child commands. Plugins must honor it. Unix command cancellation kills the child process group; Windows cancellation requests tree termination and kills the child. `CommandOptions.Timeout` bounds individual commands. Worker goroutines finish before execution returns.
 
 ## Metrics
 
-`analyzePerformance(plan, results)` compares summed plugin durations with the measured execution wall time. Empty plans yield finite values. `optimizeExecution(nodes)` estimates improvement from dependency grouping and historical durations; it does not guarantee a speedup.
+`AnalyzePerformance(plan, results)` compares summed plugin durations with measured execution time. `OptimizeExecution(nodes)` estimates improvement using prior durations; estimates do not guarantee speedup. Durations are Go `time.Duration` values.
 
-CPU and heap deltas sample the Genesis process during a plugin's execution. Concurrent plugins overlap these samples, and subprocess resource usage is not included. Metrics are diagnostic estimates, not isolated per-plugin measurements. `getMetrics()` returns the latest result per plugin; `getExecutionHistory()` returns this engine instance's execution history.
+`PluginMetrics.MemoryUsage` samples positive changes in the Genesis process's heap object bytes. `CPUUsage` estimates process user CPU seconds divided by plugin wall time using Go runtime counters. Samples overlap during concurrent work, may update coarsely, and exclude subprocess usage. Zero is possible without a sampled increase. These are process diagnostics, not isolated plugin accounting.
+
+`GetMetrics()` returns the latest metrics per plugin. `GetExecutionHistory()` returns retained results; callers reusing an engine can release history through `ClearHistory()` and estimates through `ResetMetrics()`. The CLI creates an engine per invocation.

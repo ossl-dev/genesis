@@ -210,8 +210,12 @@ func (m *EnvironmentCacheManager) CreateSnapshot(environmentID, name, descriptio
 	}
 	cwd, _ := os.Getwd()
 	snapshot := EnvironmentSnapshot{ID: id, EnvironmentID: environmentID, Name: name, Description: description, Config: entry.Config, CreatedAt: time.Now(), Restorable: false, State: SnapshotState{Filesystem: FilesystemState{Files: []FileState{}, Directories: []string{GetGenesisHome(), cwd}, Permissions: map[string]string{}}, Environment: NewEnvironment(nil).Snapshot(), Processes: []ProcessState{}, Network: NetworkState{Ports: []PortState{}, Connections: []ConnectionState{}}}}
-	m.snapshots[id] = snapshot
-	return snapshot, nil
+	stored, err := cloneSnapshot(snapshot)
+	if err != nil {
+		return snapshot, err
+	}
+	m.snapshots[id] = stored
+	return cloneSnapshot(snapshot)
 }
 func (m *EnvironmentCacheManager) RestoreSnapshot(id string) error {
 	m.mu.Lock()
@@ -369,4 +373,14 @@ func WritePrivateFile(path string, data []byte) error {
 		return closeErr
 	}
 	return os.Rename(name, path)
+}
+
+func cloneSnapshot(snapshot EnvironmentSnapshot) (EnvironmentSnapshot, error) {
+	data, err := json.Marshal(snapshot)
+	if err != nil {
+		return EnvironmentSnapshot{}, err
+	}
+	var result EnvironmentSnapshot
+	err = json.Unmarshal(data, &result)
+	return result, err
 }

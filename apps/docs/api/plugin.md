@@ -1,51 +1,51 @@
 # Plugin API
 
-```typescript
-interface GenesisPlugin<TOptions = unknown> {
-  id: string;
-  category: GenesisPluginCategory;
-  dependsOn?: string[];
-  parseOptions?(options: unknown): TOptions;
-  prepare?(runtime: PluginRuntime<TOptions>): Promise<void>;
-  registerTasks?(runtime: PluginRuntime<TOptions>): Promise<void>;
-  preApply?(runtime: PluginRuntime<TOptions>): Promise<void>;
-  apply?(runtime: PluginRuntime<TOptions>): Promise<ApplyResult>;
-  postApply?(runtime: PluginRuntime<TOptions>): Promise<void>;
-  detect?(runtime: PluginRuntime<TOptions>): Promise<DetectResult>;
-  validate?(runtime: PluginRuntime<TOptions>): Promise<ValidateResult>;
+Plugins are Go values in `packages/core`. Optional hooks are nil function fields.
+
+```go
+package example
+
+import "github.com/ossl-dev/genesis/packages/core"
+
+func Plugin() core.Plugin {
+    return core.Plugin{
+        ID: "example",
+        Category: "tool",
+        Detect: func(r *core.Runtime, i core.Instance) (core.DetectResult, error) {
+            result, err := r.Run("example", "--version")
+            return core.DetectResult{OK: result.Code == 0, Details: result.Stdout}, err
+        },
+    }
 }
 ```
 
-Categories are `tool`, `sdk`, `language`, `library`, and `framework`. `createPlugin(instance)` must return the configured ID/category. `parseOptions` validates/defaults options at load time. Dependencies refer to configured instance IDs, not package names.
+`Plugin` fields are `ID`, `Category`, `DependsOn`, `ParseOptions`, `Prepare`, `RegisterTasks`, `PreApply`, `Apply`, `PostApply`, `Detect`, and `Validate`. Categories are `tool`, `sdk`, `language`, `library`, and `framework`. Dependencies identify configured instances. `ParseOptions` accepts and returns `map[string]any` with an error; loaders validate/default options before machine changes.
+
+Hook signatures:
+
+```go
+func(*core.Runtime, core.Instance) error // Prepare/RegisterTasks/PreApply/PostApply
+func(*core.Runtime, core.Instance) (core.DetectResult, error)
+func(*core.Runtime, core.Instance) (core.ApplyResult, error)
+func(*core.Runtime, core.Instance) (core.ValidateResult, error)
+```
 
 ## Runtime
 
-```typescript
-interface PluginRuntime<TOptions> {
-  instance: GenesisPluginInstance<TOptions>;
-  options: TOptions;
-  context: GenesisPluginContext;
-}
-interface GenesisPluginContext {
-  cwd: string;
-  env: NodeJS.ProcessEnv;
-  logger: Logger;
-  taskRegistry: TaskRegistry;
-}
-```
+`Runtime` carries `Context`, `Cwd`, synchronized `Env`, `Logger`, `Tasks`, `Runner`, `Platform`, and `Arch`. `Ensure()` fills absent defaults before execution. Use `Env.Get`, `Set`, `Snapshot`, and `PrependPath`; never mutate an environment map shared across workers. Context cancellation is cooperative inside plugin code.
 
-Pass `cwd` and `env` to child commands so config environment values and selected runtimes reach them. Register system prerequisites in `registerTasks`; that phase is over when apply hooks run.
+Use `Run(command, args...)` for commands with runtime cwd/environment, or `RunWithOptions` for a timeout override. Keep system prerequisites in `RegisterTasks`; task execution finishes before apply hooks run. Pass user values as arguments, not interpolated shell source.
 
-## Results
+## Results and failures
 
-| Method | Result |
+| Method | Result fields |
 | --- | --- |
-| `detect` | `{ ok: boolean, details?: string }` |
-| `apply` | `{ ok: boolean, didChange: boolean, details?: string }` |
-| `validate` | `{ ok: boolean, message?: string }` |
+| Detect | `OK`, `Details` |
+| Apply | `OK`, `DidChange`, `Details` |
+| Validate | `OK`, `Message` |
 
-A successful subprocess is not enough to establish the desired state; verify the requested executable/version. Returning `ok: false` blocks dependents and skips postApply. A thrown error stops sequential execution. Hooks run even after an unchanged successful apply and must be repeatable.
+Verify installed versions after commands succeed. An apply result with `OK: false` skips its post hook and blocks dependents. Sequential hook errors stop execution. Parallel errors/panics are recorded as failed plugin results. Successful unchanged applies still run their pre/post hooks, so hooks must be repeatable.
 
-Missing detection reports `unknown`; missing validation currently reports success. A missing apply method reports successful/no-change execution. Supply methods when the tool needs meaningful verification.
+A missing detect hook reports `unknown`; missing validation reports success. A missing apply hook succeeds without changes. Supply those methods when meaningful verification is required.
 
-See [Lifecycle](/plugins/lifecycle) for ordering and failure semantics. Rollback is not implemented.
+Custom executable Go plugins use [the extension protocol](/guide/plugin-development), which works across supported operating systems. Automatic system-wide rollback remains unfinished; archive installers provide their own staged recovery.

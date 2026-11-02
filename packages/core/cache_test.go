@@ -135,3 +135,17 @@ func TestWritePrivateFile(t *testing.T) {
 		}
 	}
 }
+func TestSnapshotReturnedMapsIndependent(t *testing.T) {
+	manager, _ := NewEnvironmentCacheManager(CacheConfig{})
+	entry, _ := manager.CacheEnvironment("test", Config{Env: map[string]string{"KEY": "value"}}, "", nil)
+	snapshot, err := manager.CreateSnapshot(entry.ID, "snapshot", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot.Config.Env["KEY"] = "mutated"
+	snapshot.State.Environment["KEY"] = "mutated"
+	snapshot.State.Filesystem.Permissions["KEY"] = "mutated"
+	if manager.cache[entry.ID].Config.Env["KEY"] != "value" || manager.snapshots[snapshot.ID].Config.Env["KEY"] != "value" || manager.snapshots[snapshot.ID].State.Environment["KEY"] == "mutated" {
+		t.Fatal("snapshot aliases internal cache")
+	}
+}

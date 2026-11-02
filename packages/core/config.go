@@ -20,7 +20,7 @@ type PluginMetadata struct {
 }
 
 var BuiltinPlugins = []PluginMetadata{
-	{"node", "tool", "node", "Node.js JavaScript runtime"}, {"bun", "tool", "bun", "Bun JavaScript runtime"}, {"deno", "tool", "deno", "Deno JavaScript runtime"}, {"pnpm", "tool", "pnpm", "pnpm package manager"}, {"yarn", "tool", "yarn", "Yarn Classic and modern package manager"}, {"python", "language", "python", "Python programming language"}, {"go", "language", "go", "Go programming language"}, {"java", "language", "java", "Java development kit"}, {"docker", "tool", "docker", "Docker container runtime"}, {"homebrew", "tool", "homebrew", "Homebrew package manager (macOS)"}, {"git", "tool", "git", "Git version control system"},
+	{"node", "tool", "builtin:node", "Node.js JavaScript runtime"}, {"bun", "tool", "builtin:bun", "Bun JavaScript runtime"}, {"deno", "tool", "builtin:deno", "Deno JavaScript runtime"}, {"pnpm", "tool", "builtin:pnpm", "pnpm package manager"}, {"yarn", "tool", "builtin:yarn", "Yarn Classic and modern package manager"}, {"python", "language", "builtin:python", "Python programming language"}, {"go", "language", "builtin:go", "Go programming language"}, {"java", "language", "builtin:java", "Java development kit"}, {"docker", "tool", "builtin:docker", "Docker container runtime"}, {"homebrew", "tool", "builtin:homebrew", "Homebrew package manager (macOS)"}, {"git", "tool", "builtin:git", "Git version control system"},
 }
 
 // GoConfigLoader is supplied by the CLI, which compiles executable Go configurations.
@@ -196,6 +196,19 @@ func NormalizeConfig(raw any) (Config, error) {
 			}
 		}
 	}
+	for _, section := range []string{"tools", "sdks", "languages"} {
+		if entries, ok := m[section].([]any); ok {
+			for _, entry := range entries {
+				if obj, ok := entry.(map[string]any); ok {
+					for _, field := range []string{"id", "module"} {
+						if text, ok := obj[field].(string); ok {
+							obj[field] = strings.TrimSpace(text)
+						}
+					}
+				}
+			}
+		}
+	}
 	data, err := json.Marshal(m)
 	if err != nil {
 		return Config{}, err
@@ -247,7 +260,10 @@ func ValidateConfig(config Config) error {
 			return fmt.Errorf("scripts[%d].when: expected before or after", i)
 		}
 	}
-	for k := range config.Env {
+	for k, v := range config.Env {
+		if strings.ContainsRune(v, 0) {
+			return fmt.Errorf("env.%s: NUL is not allowed", k)
+		}
 		if k == "" || strings.ContainsAny(k, "=\x00") {
 			return fmt.Errorf("env: invalid environment variable name %q", k)
 		}
@@ -293,6 +309,13 @@ func validateRawConfig(m map[string]any) error {
 				}
 			case "scripts":
 				fields = []string{"name", "command"}
+			}
+			if section == "repositories" {
+				if branch, exists := obj["branch"]; exists {
+					if text, ok := branch.(string); !ok || text == "" {
+						return fmt.Errorf("repositories[%d].branch: expected nonempty string", i)
+					}
+				}
 			}
 			for _, field := range fields {
 				if _, ok := obj[field].(string); !ok {

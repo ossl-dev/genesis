@@ -26,6 +26,10 @@ func configureProcess(cmd *exec.Cmd) error {
 			if strings.ContainsAny(arg, "\"\r\n\x00") {
 				return fmt.Errorf("batch command arguments cannot contain quotes, newlines or NUL")
 			}
+			if arg == "" {
+				parts[i] = `""`
+				continue
+			}
 			key := "GENESIS_BATCH_ARG_" + strconv.Itoa(i)
 			cmd.Env = append(cmd.Env, key+"="+arg)
 			parts[i] = "\"%" + key + "%\""

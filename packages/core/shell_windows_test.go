@@ -31,7 +31,7 @@ exit /b %errorlevel%
 	env.PrependPath(dir)
 	env.Set("GENESIS_WINDOWS_TEST_EXE", executable)
 	env.Set("GENESIS_WINDOWS_ARG_PROBE", "1")
-	args := []string{"value & literal %PATH% !", "", "two words", "parentheses (literal)", "日本語"}
+	args := []string{"", "value & literal %PATH% !", "", "two words", "parentheses (literal)", "日本語", ""}
 	result, err := RunCommand(context.Background(), "runtime-tool", args, CommandOptions{Env: env.Snapshot()})
 	if err != nil || result.Code != 0 || result.Stderr != "" {
 		t.Fatalf("%+v %v", result, err)
@@ -99,5 +99,16 @@ func TestWindowsRelativeBatchRuntimePath(t *testing.T) {
 	result, err = RunCommand(context.Background(), filepath.Join(".", "bin", "runtime-relative-tool.cmd"), nil, CommandOptions{Cwd: directory, Env: environment})
 	if err != nil || result.Code != 0 || result.Stdout != "relative selected" {
 		t.Fatal(result, err)
+	}
+}
+
+func TestWindowsBatchRejectsUnsupportedArguments(t *testing.T) {
+	for _, test := range []struct{ name, value string }{{"quote", `embedded"quote`}, {"newline", "line\nbreak"}, {"carriage return", "line\rbreak"}, {"NUL", "zero\x00byte"}} {
+		t.Run(test.name, func(t *testing.T) {
+			result, err := RunCommand(context.Background(), filepath.Join(t.TempDir(), "unused.cmd"), []string{test.value}, CommandOptions{})
+			if err != nil || result.Code == 0 || !strings.Contains(result.Stderr, "batch command arguments cannot contain") {
+				t.Fatalf("%+v %v", result, err)
+			}
+		})
 	}
 }
